@@ -18,6 +18,12 @@ public final class MundoHiddenApi {
             return;
         }
         try {
+            if (MundoNative.isLoaded() && MundoNative.nativeExemptHiddenApi()) {
+                sExempted = true;
+                return;
+            }
+        } catch (Throwable ignored) {}
+        try {
             Method forName = Class.class.getDeclaredMethod("forName", String.class);
             Method getDeclaredMethod = Class.class.getDeclaredMethod("getDeclaredMethod", String.class, Class[].class);
 

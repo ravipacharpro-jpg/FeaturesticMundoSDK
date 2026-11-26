@@ -2,6 +2,7 @@
 #include <string>
 #include <vector>
 #include <atomic>
+#include <thread>
 #include <cstring>
 #include <cstdlib>
 #include <cstdio>
@@ -363,5 +364,44 @@ Java_com_featurestic_mundo_core_MundoNative_nativeIsStreamproofEnabled(JNIEnv *,
 
 extern "C" JNIEXPORT jstring JNICALL
 Java_com_featurestic_mundo_core_MundoNative_nativeGetEngineVersion(JNIEnv *env, jclass) {
-    return env->NewStringUTF("FeaturesticMundoEngine/1.1.0-ScratchPLT");
+    return env->NewStringUTF("FeaturesticMundoEngine/1.1.1-ScratchPLT");
+}
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_com_featurestic_mundo_core_MundoNative_nativeExemptHiddenApi(JNIEnv *env, jclass) {
+    JavaVM *vm = nullptr;
+    if (env->GetJavaVM(&vm) != JNI_OK || vm == nullptr) return JNI_FALSE;
+    bool ok = false;
+    std::thread([vm, &ok]() {
+        JNIEnv *tEnv = nullptr;
+        if (vm->AttachCurrentThread(&tEnv, nullptr) == JNI_OK && tEnv != nullptr) {
+            jclass vmRuntimeCls = tEnv->FindClass("dalvik/system/VMRuntime");
+            if (vmRuntimeCls != nullptr) {
+                jmethodID getRuntime = tEnv->GetStaticMethodID(
+                        vmRuntimeCls, "getRuntime", "()Ldalvik/system/VMRuntime;");
+                jmethodID setExempt = tEnv->GetMethodID(
+                        vmRuntimeCls, "setHiddenApiExemptions", "([Ljava/lang/String;)V");
+                if (getRuntime != nullptr && setExempt != nullptr) {
+                    jobject runtime = tEnv->CallStaticObjectMethod(vmRuntimeCls, getRuntime);
+                    if (runtime != nullptr) {
+                        jclass strCls = tEnv->FindClass("java/lang/String");
+                        jobjectArray arr = tEnv->NewObjectArray(1, strCls, tEnv->NewStringUTF("L"));
+                        tEnv->CallVoidMethod(runtime, setExempt, arr);
+                        if (!tEnv->ExceptionCheck()) {
+                            ok = true;
+                        } else {
+                            tEnv->ExceptionClear();
+                        }
+                        tEnv->DeleteLocalRef(arr);
+                        tEnv->DeleteLocalRef(strCls);
+                        tEnv->DeleteLocalRef(runtime);
+                    }
+                }
+                tEnv->DeleteLocalRef(vmRuntimeCls);
+            }
+            vm->DetachCurrentThread();
+        }
+    }).join();
+    LOGI("nativeExemptHiddenApi=%d", ok ? 1 : 0);
+    return ok ? JNI_TRUE : JNI_FALSE;
 }

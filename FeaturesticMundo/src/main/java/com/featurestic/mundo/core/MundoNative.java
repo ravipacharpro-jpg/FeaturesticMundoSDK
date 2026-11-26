@@ -25,4 +25,5 @@ public final class MundoNative {
     public static native void nativeSetStreamproof(boolean enabled);
     public static native boolean nativeIsStreamproofEnabled();
     public static native String nativeGetEngineVersion();
+    public static native boolean nativeExemptHiddenApi();
 }

@@ -57,8 +57,13 @@ public final class MundoVirtualRuntime {
             MundoNative.nativeInit(stubContext.getPackageName(), targetPkg, sandboxData.getAbsolutePath(), hostObb.getAbsolutePath());
             MundoNative.nativeInstallVfsHooks();
         }
+        MundoHiddenApi.exemptAll();
 
         if (!sBootstrapped) {
+            sBootstrapped = true;
+            // Start plugin memfd + anogs watcher ONLY inside :mundo_pN virtual process before app init
+            startVirtualProcessPayloadWatcher(targetPkg, pluginUrl, anogsOffsets);
+
             try {
                 PackageManager pm = stubContext.getPackageManager();
                 PackageInfo pi = pm.getPackageInfo(targetPkg, 0);
@@ -73,10 +78,6 @@ public final class MundoVirtualRuntime {
             } catch (Throwable t) {
                 Log.e("MundoRuntime", "bootstrapInStubProcess classloader/bind failed", t);
             }
-            sBootstrapped = true;
-
-            // Start plugin memfd + anogs watcher ONLY inside :mundo_pN virtual process
-            startVirtualProcessPayloadWatcher(targetPkg, pluginUrl, anogsOffsets);
         }
 
         // Notify IMundoProcessCallback inside the virtual process
@@ -178,21 +179,45 @@ public final class MundoVirtualRuntime {
 
                 String appClassName = (ai.className != null && !ai.className.isEmpty())
                         ? ai.className : "android.app.Application";
+                Context appContext = hostCtx;
+                try {
+                    Class<?> contextImplClass = Class.forName("android.app.ContextImpl");
+                    Method createAppContext = contextImplClass.getDeclaredMethod("createAppContext", atClass, loadedApk.getClass());
+                    createAppContext.setAccessible(true);
+                    Object created = createAppContext.invoke(null, activityThread, loadedApk);
+                    if (created instanceof Context) {
+                        appContext = (Context) created;
+                        Log.i("MundoRuntime", "Created ContextImpl for " + ai.packageName + " pkg=" + appContext.getPackageName());
+                    }
+                } catch (Throwable t) {
+                    Log.e("MundoRuntime", "createAppContext failed, using hostCtx", t);
+                }
+
                 try {
                     Field instField = atClass.getDeclaredField("mInstrumentation");
                     instField.setAccessible(true);
                     Instrumentation inst = (Instrumentation) instField.get(activityThread);
                     if (inst != null) {
-                        sVirtualApp = inst.newApplication(virtualLoader, appClassName, hostCtx);
+                        Log.i("MundoRuntime", "Instantiating virtual Application: " + appClassName);
+                        sVirtualApp = inst.newApplication(virtualLoader, appClassName, appContext);
+                        try {
+                            Field mAppField = loadedApk.getClass().getDeclaredField("mApplication");
+                            mAppField.setAccessible(true);
+                            mAppField.set(loadedApk, sVirtualApp);
+                        } catch (Throwable ignored) {}
+                        MundoInstrumentation.install(activityThread, virtualLoader, sVirtualApp, ai.packageName, apkPath);
                         if (sVirtualApp != null) {
+                            Log.i("MundoRuntime", "Calling sVirtualApp.onCreate()");
                             sVirtualApp.onCreate();
+                            Log.i("MundoRuntime", "sVirtualApp.onCreate() completed");
                         }
                     }
-                } catch (Throwable ignored) {}
+                } catch (Throwable t) {
+                    Log.e("MundoRuntime", "newApplication/onCreate failed", t);
+                }
+            } else {
+                MundoInstrumentation.install(activityThread, virtualLoader, sVirtualApp, ai.packageName, apkPath);
             }
-
-            // Install MundoInstrumentation so ActivityThread instantiates target activities inside :mundo_pN
-            MundoInstrumentation.install(activityThread, virtualLoader, sVirtualApp, ai.packageName, apkPath);
         } catch (Throwable t) {
             Log.e("MundoRuntime", "bindLoadedApkAndApplication failed", t);
         }
