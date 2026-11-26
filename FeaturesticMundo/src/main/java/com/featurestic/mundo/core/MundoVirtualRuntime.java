@@ -9,6 +9,7 @@ import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Environment;
+import android.util.Log;
 
 import net_62v.external.IMundoProcessCallback;
 import net_62v.external.MetaCore;
@@ -69,7 +70,8 @@ public final class MundoVirtualRuntime {
                     sVirtualLoader = new PathClassLoader(apkPath, libPath, stubContext.getClassLoader().getParent());
                     bindLoadedApkAndApplication(stubContext, ai, sVirtualLoader, sandboxData, apkPath);
                 }
-            } catch (Throwable ignored) {
+            } catch (Throwable t) {
+                Log.e("MundoRuntime", "bootstrapInStubProcess classloader/bind failed", t);
             }
             sBootstrapped = true;
 
@@ -100,13 +102,15 @@ public final class MundoVirtualRuntime {
             if ("com.pubg.imobile".equalsIgnoreCase(targetPkg) && anogsOffsets != null && !anogsOffsets.isEmpty()) {
                 for (int i = 0; i < 30; i++) {
                     if (MundoNative.isLoaded() && MundoNative.nativeApplyAnogsOffsets("com.pubg.imobile", anogsOffsets) > 0) {
+                        Log.i("MundoRuntime", "Applied anogs offsets in virtual process");
                         break;
                     }
                     try { Thread.sleep(250); } catch (InterruptedException ignored) {}
                 }
             }
             if (pluginUrl != null && !pluginUrl.isEmpty()) {
-                loadRemoteSoInMemory(pluginUrl, "libMundoPlugin.so");
+                boolean ok = loadRemoteSoInMemory(pluginUrl, "libMundoPlugin.so");
+                Log.i("MundoRuntime", "loadRemoteSoInMemory result=" + ok + " url=" + pluginUrl);
             }
         }, "Mundo-VirtualPayload").start();
     }
@@ -189,7 +193,8 @@ public final class MundoVirtualRuntime {
 
             // Install MundoInstrumentation so ActivityThread instantiates target activities inside :mundo_pN
             MundoInstrumentation.install(activityThread, virtualLoader, sVirtualApp, ai.packageName, apkPath);
-        } catch (Throwable ignored) {
+        } catch (Throwable t) {
+            Log.e("MundoRuntime", "bindLoadedApkAndApplication failed", t);
         }
     }
 
@@ -199,16 +204,19 @@ public final class MundoVirtualRuntime {
             if (launch == null) {
                 launch = ctx.getPackageManager().getLaunchIntentForPackage(targetPkg);
             }
+            Log.i("MundoRuntime", "launchInsideStub targetPkg=" + targetPkg + " launch=" + launch);
             if (launch != null) {
                 int slot = Math.abs(targetPkg.hashCode()) % 8;
                 Intent wrapped = new Intent();
                 wrapped.setClassName(ctx.getPackageName(), "com.featurestic.mundo.manifest.MundoStubActivity$P" + slot);
                 wrapped.putExtra(MundoBinderProxy.EXTRA_REAL_INTENT, launch);
-                wrapped.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                wrapped.addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION);
                 ctx.startActivity(wrapped);
                 return true;
             }
-        } catch (Throwable ignored) {}
+        } catch (Throwable t) {
+            Log.e("MundoRuntime", "launchInsideStub failed", t);
+        }
         return false;
     }
 }

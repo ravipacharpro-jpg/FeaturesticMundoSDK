@@ -10,6 +10,7 @@ import android.content.res.AssetManager;
 import android.content.res.Resources;
 import android.os.Bundle;
 import android.os.IBinder;
+import android.util.Log;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -52,7 +53,10 @@ public final class MundoInstrumentation extends Instrumentation {
             if (baseInst instanceof MundoInstrumentation) return;
             instField.set(activityThread,
                     new MundoInstrumentation(baseInst, virtualLoader, virtualApp, targetPkg, sourceDir));
-        } catch (Throwable ignored) {}
+            Log.i("MundoInst", "Installed MundoInstrumentation for " + targetPkg);
+        } catch (Throwable t) {
+            Log.e("MundoInst", "install failed", t);
+        }
     }
 
     @Override
@@ -63,8 +67,11 @@ public final class MundoInstrumentation extends Instrumentation {
             if (realIntent != null && realIntent.getComponent() != null) {
                 String realClass = realIntent.getComponent().getClassName();
                 try {
+                    Log.i("MundoInst", "newActivity instantiating real class: " + realClass);
                     return (Activity) virtualLoader.loadClass(realClass).newInstance();
-                } catch (Throwable ignored) {}
+                } catch (Throwable t) {
+                    Log.e("MundoInst", "newActivity failed for " + realClass, t);
+                }
             }
         }
         return base.newActivity(cl, className, intent);
@@ -85,6 +92,7 @@ public final class MundoInstrumentation extends Instrumentation {
         if (MundoStreamproofGuard.isEnabled() && activity != null) {
             MundoStreamproofGuard.applyNow(activity);
         }
+        Log.i("MundoInst", "callActivityOnCreate: " + (activity != null ? activity.getClass().getName() : "null"));
         base.callActivityOnCreate(activity, icicle);
     }
 
