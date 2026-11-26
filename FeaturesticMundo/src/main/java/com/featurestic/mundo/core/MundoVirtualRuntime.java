@@ -66,7 +66,7 @@ public final class MundoVirtualRuntime {
 
             try {
                 PackageManager pm = stubContext.getPackageManager();
-                PackageInfo pi = pm.getPackageInfo(targetPkg, 0);
+                PackageInfo pi = pm.getPackageInfo(targetPkg, PackageManager.GET_META_DATA);
                 ApplicationInfo ai = pi.applicationInfo;
                 if (ai != null) {
                     String apkPath = (sourceDir != null && !sourceDir.isEmpty()) ? sourceDir : ai.publicSourceDir;

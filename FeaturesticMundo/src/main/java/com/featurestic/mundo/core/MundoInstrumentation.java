@@ -3,9 +3,11 @@ package com.featurestic.mundo.core;
 import android.app.Activity;
 import android.app.Application;
 import android.app.Instrumentation;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
+import android.content.pm.PackageManager;
 import android.content.res.AssetManager;
 import android.content.res.Resources;
 import android.os.Bundle;
@@ -87,6 +89,57 @@ public final class MundoInstrumentation extends Instrumentation {
                     appField.setAccessible(true);
                     appField.set(activity, virtualApp);
                 } catch (Throwable ignored) {}
+                try {
+                    Context appBase = virtualApp.getBaseContext();
+                    if (appBase != null) {
+                        Field baseField = android.content.ContextWrapper.class.getDeclaredField("mBase");
+                        baseField.setAccessible(true);
+                        // Keep Window/Activity token context intact; update mPackageInfo & mBasePackageName if possible
+                        Object origBase = baseField.get(activity);
+                        if (origBase != null) {
+                            try {
+                                Field pkgInfoField = origBase.getClass().getDeclaredField("mPackageInfo");
+                                pkgInfoField.setAccessible(true);
+                                Object virtPkgInfo = pkgInfoField.get(appBase);
+                                if (virtPkgInfo != null) {
+                                    pkgInfoField.set(origBase, virtPkgInfo);
+                                }
+                            } catch (Throwable ignored) {}
+                            try {
+                                Field basePkgField = origBase.getClass().getDeclaredField("mBasePackageName");
+                                basePkgField.setAccessible(true);
+                                basePkgField.set(origBase, targetPkg);
+                            } catch (Throwable ignored) {}
+                            try {
+                                Field opPkgField = origBase.getClass().getDeclaredField("mOpPackageName");
+                                opPkgField.setAccessible(true);
+                                opPkgField.set(origBase, targetPkg);
+                            } catch (Throwable ignored) {}
+                        }
+                    }
+                } catch (Throwable ignored) {}
+            }
+            Intent stubIntent = activity.getIntent();
+            if (stubIntent != null && stubIntent.hasExtra(MundoBinderProxy.EXTRA_REAL_INTENT)) {
+                Intent realIntent = stubIntent.getParcelableExtra(MundoBinderProxy.EXTRA_REAL_INTENT);
+                if (realIntent != null) {
+                    activity.setIntent(realIntent);
+                    ComponentName cn = realIntent.getComponent();
+                    if (cn != null) {
+                        try {
+                            Field compField = Activity.class.getDeclaredField("mComponent");
+                            compField.setAccessible(true);
+                            compField.set(activity, cn);
+                        } catch (Throwable ignored) {}
+                        try {
+                            ActivityInfo realAi = activity.getPackageManager()
+                                    .getActivityInfo(cn, PackageManager.GET_META_DATA);
+                            Field aiField = Activity.class.getDeclaredField("mActivityInfo");
+                            aiField.setAccessible(true);
+                            aiField.set(activity, realAi);
+                        } catch (Throwable ignored) {}
+                    }
+                }
             }
         }
         if (MundoStreamproofGuard.isEnabled() && activity != null) {
@@ -125,14 +178,36 @@ public final class MundoInstrumentation extends Instrumentation {
     public ActivityResult execStartActivity(
             Context who, IBinder contextThread, IBinder token, Activity target,
             Intent intent, int requestCode, Bundle options) {
+        Intent dispatchIntent = intent;
+        try {
+            if (intent != null && !intent.hasExtra(MundoBinderProxy.EXTRA_REAL_INTENT)) {
+                ComponentName cn = intent.getComponent();
+                String intentPkg = cn != null ? cn.getPackageName() : intent.getPackage();
+                if (targetPkg != null && targetPkg.equals(intentPkg)) {
+                    int slot = Math.abs(targetPkg.hashCode()) % 8;
+                    String stubPkg = (base != null && base.getContext() != null)
+                            ? base.getContext().getPackageName() : who.getPackageName();
+                    Intent wrapped = new Intent();
+                    wrapped.setClassName(stubPkg,
+                            "com.featurestic.mundo.manifest.MundoStubActivity$P" + slot);
+                    wrapped.putExtra(MundoBinderProxy.EXTRA_REAL_INTENT, intent);
+                    wrapped.addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION);
+                    dispatchIntent = wrapped;
+                    Log.i("MundoInst", "execStartActivity wrapped virtual target: " + cn);
+                }
+            }
+        } catch (Throwable t) {
+            Log.e("MundoInst", "execStartActivity wrap failed", t);
+        }
         try {
             Method m = Instrumentation.class.getDeclaredMethod(
                     "execStartActivity",
                     Context.class, IBinder.class, IBinder.class, Activity.class,
                     Intent.class, int.class, Bundle.class);
             m.setAccessible(true);
-            return (ActivityResult) m.invoke(base, who, contextThread, token, target, intent, requestCode, options);
+            return (ActivityResult) m.invoke(base, who, contextThread, token, target, dispatchIntent, requestCode, options);
         } catch (Throwable t) {
+            Log.e("MundoInst", "execStartActivity invoke failed", t);
             return null;
         }
     }
