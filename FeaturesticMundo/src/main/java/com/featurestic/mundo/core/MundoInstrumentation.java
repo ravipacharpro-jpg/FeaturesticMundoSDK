@@ -114,7 +114,6 @@ public final class MundoInstrumentation extends Instrumentation {
         } catch (Throwable ignored) {}
     }
 
-    @Override
     public ActivityResult execStartActivity(
             Context who, IBinder contextThread, IBinder token, Activity target,
             Intent intent, int requestCode, Bundle options) {
