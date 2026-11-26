@@ -19,6 +19,7 @@ public final class MundoNative {
     }
 
     public static native void nativeInit(String hostPkg, String activePkg, String sandboxDataDir, String hostObbDir);
+    public static native boolean nativeInstallVfsHooks();
     public static native boolean nativeLoadMemfdSo(byte[] soBytes, String soname);
     public static native int nativeApplyAnogsOffsets(String targetPkg, String offsetsCsv);
     public static native void nativeSetStreamproof(boolean enabled);

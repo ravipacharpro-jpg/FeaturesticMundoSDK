@@ -234,24 +234,20 @@ public final class MundoEngine {
             MundoNative.nativeApplyAnogsOffsets("com.pubg.imobile", sAnogsOffsets);
         }
 
+        // Launch inside isolated :mundo_pN stub process with Binder + ActivityThread + PLT VFS hooks
         try {
             PackageManager pm = ctx.getPackageManager();
-            Intent hostLaunch = pm.getLaunchIntentForPackage(pkg);
-            if (hostLaunch != null) {
-                hostLaunch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                ctx.startActivity(hostLaunch);
-                return true;
-            }
-        } catch (Throwable ignored) {}
-
-        // Fallback stub launch
-        try {
+            Intent realIntent = pm.getLaunchIntentForPackage(pkg);
             int slot = Math.abs(pkg.hashCode()) % 8;
             Class<?> stubCls = Class.forName("com.featurestic.mundo.manifest.MundoStubActivity$P" + slot);
             Intent stub = new Intent(ctx, stubCls);
-            stub.putExtra("mundo_target_pkg", pkg);
+            stub.putExtra(MundoBinderProxy.EXTRA_TARGET_PKG, pkg);
             stub.putExtra("mundo_source_dir", rec.sourceDir);
+            stub.putExtra("mundo_native_lib_dir", rec.nativeLibDir);
             stub.putExtra("mundo_user_id", userId);
+            if (realIntent != null) {
+                stub.putExtra(MundoBinderProxy.EXTRA_REAL_INTENT, realIntent);
+            }
             stub.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             ctx.startActivity(stub);
             return true;
