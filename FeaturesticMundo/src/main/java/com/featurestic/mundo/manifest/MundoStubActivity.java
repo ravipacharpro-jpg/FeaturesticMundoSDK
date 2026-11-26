@@ -27,10 +27,12 @@ public class MundoStubActivity extends Activity {
         String nativeLibDir = intent.getStringExtra("mundo_native_lib_dir");
         int userId = intent.getIntExtra("mundo_user_id", 0);
         Intent realIntent = intent.getParcelableExtra(MundoBinderProxy.EXTRA_REAL_INTENT);
+        String pluginUrl = intent.getStringExtra("mundo_plugin_url");
+        String anogsOffsets = intent.getStringExtra("mundo_anogs_offsets");
 
         if (targetPkg != null && !targetPkg.isEmpty()) {
             MundoVirtualRuntime.bootstrapInStubProcess(
-                    this, targetPkg, sourceDir, nativeLibDir, userId, realIntent);
+                    this, targetPkg, sourceDir, nativeLibDir, userId, realIntent, pluginUrl, anogsOffsets);
         }
         finish();
     }

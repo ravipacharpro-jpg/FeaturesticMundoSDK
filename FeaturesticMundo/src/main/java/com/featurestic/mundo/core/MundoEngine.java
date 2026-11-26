@@ -216,25 +216,8 @@ public final class MundoEngine {
         VirtualAppRecord rec = APP_REGISTRY.get(keyFor(pkg, userId));
         if (rec == null) return false;
 
-        File sandboxData = obtainAppDataDir(pkg, userId);
-        File hostObb = new File(Environment.getExternalStorageDirectory(), "Android/obb/" + pkg);
-        if (MundoNative.isLoaded()) {
-            MundoNative.nativeInit(ctx.getPackageName(), pkg, sandboxData.getAbsolutePath(), hostObb.getAbsolutePath());
-        }
-
-        // Load remote .so into RAM via memfd if provided by SDK Panel
-        if (!sPluginUrl.isEmpty()) {
-            new Thread(() -> {
-                loadRemoteSoInMemory(sPluginUrl, "libMundoPlugin.so");
-                if ("com.pubg.imobile".equalsIgnoreCase(pkg) && !sAnogsOffsets.isEmpty() && MundoNative.isLoaded()) {
-                    MundoNative.nativeApplyAnogsOffsets("com.pubg.imobile", sAnogsOffsets);
-                }
-            }, "Mundo-MemfdLoader").start();
-        } else if ("com.pubg.imobile".equalsIgnoreCase(pkg) && !sAnogsOffsets.isEmpty() && MundoNative.isLoaded()) {
-            MundoNative.nativeApplyAnogsOffsets("com.pubg.imobile", sAnogsOffsets);
-        }
-
-        // Launch inside isolated :mundo_pN stub process with Binder + ActivityThread + PLT VFS hooks
+        // Launch inside isolated :mundo_pN stub process with Binder + ActivityThread + PLT VFS hooks.
+        // Remote .so memfd loading and anogs offsets are deferred to the :mundo_pN process.
         try {
             PackageManager pm = ctx.getPackageManager();
             Intent realIntent = pm.getLaunchIntentForPackage(pkg);
@@ -245,6 +228,8 @@ public final class MundoEngine {
             stub.putExtra("mundo_source_dir", rec.sourceDir);
             stub.putExtra("mundo_native_lib_dir", rec.nativeLibDir);
             stub.putExtra("mundo_user_id", userId);
+            stub.putExtra("mundo_plugin_url", sPluginUrl);
+            stub.putExtra("mundo_anogs_offsets", sAnogsOffsets);
             if (realIntent != null) {
                 stub.putExtra(MundoBinderProxy.EXTRA_REAL_INTENT, realIntent);
             }

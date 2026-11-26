@@ -46,13 +46,13 @@ jobs:
           name: FeaturesticMundo-release-aar
           path: dist/FeaturesticMundo-release.aar
 
-      - name: Publish Release v1.1.0
+      - name: Publish Release v1.1.1
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release view v1.1.0 >/dev/null 2>&1 && gh release delete v1.1.0 --yes --cleanup-tag || true
-          git push origin --delete v1.1.0 >/dev/null 2>&1 || true
-          gh release create v1.1.0 dist/FeaturesticMundo-release.aar#FeaturesticMundo-release.aar \
-            --title "FeaturesticMundoSDK v1.1.0" \
-            --notes "Pure scratch Binder + ActivityThread/LoadedApk + ARM64 PLT/GOT VFS hook engine." \
+          gh release view v1.1.1 >/dev/null 2>&1 && gh release delete v1.1.1 --yes --cleanup-tag || true
+          git push origin --delete v1.1.1 >/dev/null 2>&1 || true
+          gh release create v1.1.1 dist/FeaturesticMundo-release.aar#FeaturesticMundo-release.aar \
+            --title "FeaturesticMundoSDK v1.1.1" \
+            --notes "v1.1.1: Instrumentation hook + :mundo_pN memfd/anogs isolation." \
             --target "$GITHUB_SHA"
