@@ -119,6 +119,11 @@ public final class MundoInstrumentation extends Instrumentation {
                                 opPkgField.setAccessible(true);
                                 opPkgField.set(origBase, targetPkg);
                             } catch (Throwable ignored) {}
+                            try {
+                                Field clField = origBase.getClass().getDeclaredField("mClassLoader");
+                                clField.setAccessible(true);
+                                clField.set(origBase, virtualLoader);
+                            } catch (Throwable ignored) {}
                         }
                     }
                 } catch (Throwable ignored) {}
