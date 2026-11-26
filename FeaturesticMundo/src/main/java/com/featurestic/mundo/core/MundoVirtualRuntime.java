@@ -205,7 +205,7 @@ public final class MundoVirtualRuntime {
                             mAppField.setAccessible(true);
                             mAppField.set(loadedApk, sVirtualApp);
                         } catch (Throwable ignored) {}
-                        MundoInstrumentation.install(activityThread, virtualLoader, sVirtualApp, ai.packageName, apkPath);
+                        MundoInstrumentation.install(activityThread, virtualLoader, sVirtualApp, hostCtx.getPackageName(), ai.packageName, apkPath);
                         if (sVirtualApp != null) {
                             Log.i("MundoRuntime", "Calling sVirtualApp.onCreate()");
                             sVirtualApp.onCreate();
@@ -216,7 +216,7 @@ public final class MundoVirtualRuntime {
                     Log.e("MundoRuntime", "newApplication/onCreate failed", t);
                 }
             } else {
-                MundoInstrumentation.install(activityThread, virtualLoader, sVirtualApp, ai.packageName, apkPath);
+                MundoInstrumentation.install(activityThread, virtualLoader, sVirtualApp, hostCtx.getPackageName(), ai.packageName, apkPath);
             }
         } catch (Throwable t) {
             Log.e("MundoRuntime", "bindLoadedApkAndApplication failed", t);

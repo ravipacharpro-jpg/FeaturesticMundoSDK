@@ -26,6 +26,7 @@ public final class MundoInstrumentation extends Instrumentation {
     private final Instrumentation base;
     private final ClassLoader virtualLoader;
     private final Application virtualApp;
+    private final String hostPkg;
     private final String targetPkg;
     private final String sourceDir;
 
@@ -33,11 +34,13 @@ public final class MundoInstrumentation extends Instrumentation {
             Instrumentation base,
             ClassLoader virtualLoader,
             Application virtualApp,
+            String hostPkg,
             String targetPkg,
             String sourceDir) {
         this.base = base;
         this.virtualLoader = virtualLoader;
         this.virtualApp = virtualApp;
+        this.hostPkg = hostPkg;
         this.targetPkg = targetPkg;
         this.sourceDir = sourceDir;
     }
@@ -46,6 +49,7 @@ public final class MundoInstrumentation extends Instrumentation {
             Object activityThread,
             ClassLoader virtualLoader,
             Application virtualApp,
+            String hostPkg,
             String targetPkg,
             String sourceDir) {
         try {
@@ -54,8 +58,8 @@ public final class MundoInstrumentation extends Instrumentation {
             Instrumentation baseInst = (Instrumentation) instField.get(activityThread);
             if (baseInst instanceof MundoInstrumentation) return;
             instField.set(activityThread,
-                    new MundoInstrumentation(baseInst, virtualLoader, virtualApp, targetPkg, sourceDir));
-            Log.i("MundoInst", "Installed MundoInstrumentation for " + targetPkg);
+                    new MundoInstrumentation(baseInst, virtualLoader, virtualApp, hostPkg, targetPkg, sourceDir));
+            Log.i("MundoInst", "Installed MundoInstrumentation for " + targetPkg + " host=" + hostPkg);
         } catch (Throwable t) {
             Log.e("MundoInst", "install failed", t);
         }
@@ -185,10 +189,8 @@ public final class MundoInstrumentation extends Instrumentation {
                 String intentPkg = cn != null ? cn.getPackageName() : intent.getPackage();
                 if (targetPkg != null && targetPkg.equals(intentPkg)) {
                     int slot = Math.abs(targetPkg.hashCode()) % 8;
-                    String stubPkg = (base != null && base.getContext() != null)
-                            ? base.getContext().getPackageName() : who.getPackageName();
                     Intent wrapped = new Intent();
-                    wrapped.setClassName(stubPkg,
+                    wrapped.setClassName(hostPkg,
                             "com.featurestic.mundo.manifest.MundoStubActivity$P" + slot);
                     wrapped.putExtra(MundoBinderProxy.EXTRA_REAL_INTENT, intent);
                     wrapped.addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION);
