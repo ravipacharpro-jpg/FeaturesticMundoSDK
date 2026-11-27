@@ -137,10 +137,7 @@ public final class MundoBinderProxy {
                             args[i] = sHostPkg;
                         }
                     }
-                } else if ("getContentProvider".equals(name) || "registerReceiver".equals(name)
-                        || "broadcastIntent".equals(name) || "broadcastIntentWithFeature".equals(name)
-                        || "startService".equals(name) || "bindService".equals(name)
-                        || "bindServiceInstance".equals(name) || "bindIsolatedService".equals(name)) {
+                } else {
                     if ("bindService".equals(name) || "bindServiceInstance".equals(name)
                             || "bindIsolatedService".equals(name)) {
                         for (Object arg : args) {
@@ -158,6 +155,28 @@ public final class MundoBinderProxy {
                             }
                         }
                     }
+                    if ("getIntentSender".equals(name) || "getIntentSenderWithFeature".equals(name)
+                            || "getIntentSenderWithSourceToken".equals(name)) {
+                        for (Object arg : args) {
+                            if (arg instanceof Intent[]) {
+                                Intent[] intents = (Intent[]) arg;
+                                for (int j = 0; j < intents.length; j++) {
+                                    Intent orig = intents[j];
+                                    if (orig != null && orig.getComponent() != null
+                                            && !sVirtualPkg.isEmpty()
+                                            && sVirtualPkg.equals(orig.getComponent().getPackageName())) {
+                                        int slot = Math.abs(sVirtualPkg.hashCode()) % 8;
+                                        Intent stub = new Intent();
+                                        stub.setClassName(sHostPkg, "com.featurestic.mundo.manifest.MundoStubActivity$P" + slot);
+                                        stub.putExtra(EXTRA_REAL_INTENT, orig);
+                                        stub.putExtra(EXTRA_TARGET_PKG, sVirtualPkg);
+                                        intents[j] = stub;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    // Rewrite callingPackage from virtualPkg to hostPkg across all AMS calls
                     for (int i = 0; i < args.length; i++) {
                         if (args[i] instanceof String && sVirtualPkg.equals(args[i])) {
                             args[i] = sHostPkg;
@@ -165,7 +184,12 @@ public final class MundoBinderProxy {
                     }
                 }
             }
-            return method.invoke(base, args);
+            try {
+                return method.invoke(base, args);
+            } catch (java.lang.reflect.InvocationTargetException ite) {
+                Throwable cause = ite.getCause();
+                throw cause != null ? cause : ite;
+            }
         }
     }
 
