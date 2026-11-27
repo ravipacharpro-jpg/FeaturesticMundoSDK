@@ -124,6 +124,15 @@ public final class MundoInstrumentation extends Instrumentation {
                                 clField.setAccessible(true);
                                 clField.set(origBase, virtualLoader);
                             } catch (Throwable ignored) {}
+                            for (String dirField : new String[]{
+                                    "mDatabasesDir", "mFilesDir", "mCacheDir",
+                                    "mPreferencesDir", "mNoBackupFilesDir", "mCodeCacheDir"}) {
+                                try {
+                                    Field df = origBase.getClass().getDeclaredField(dirField);
+                                    df.setAccessible(true);
+                                    df.set(origBase, null);
+                                } catch (Throwable ignored) {}
+                            }
                         }
                     }
                 } catch (Throwable ignored) {}

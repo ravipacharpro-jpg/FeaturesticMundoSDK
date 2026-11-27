@@ -52,6 +52,10 @@ public final class MundoVirtualRuntime {
 
         File sandboxData = MundoEngine.obtainAppDataDir(targetPkg, userId);
         if (!sandboxData.exists()) sandboxData.mkdirs();
+        for (String sub : new String[]{"databases", "files", "cache", "shared_prefs", "no_backup", "code_cache"}) {
+            File subDir = new File(sandboxData, sub);
+            if (!subDir.exists()) subDir.mkdirs();
+        }
         File hostObb = new File(Environment.getExternalStorageDirectory(), "Android/obb/" + targetPkg);
 
         if (MundoNative.isLoaded()) {

@@ -13,6 +13,7 @@
 #include <link.h>
 #include <elf.h>
 #include <sys/mman.h>
+#include <sys/stat.h>
 #include <sys/syscall.h>
 #include <android/log.h>
 
@@ -67,6 +68,15 @@ static int (*orig_openat)(int dirfd, const char *pathname, int flags, ...) = nul
 static int (*orig_open)(const char *pathname, int flags, ...) = nullptr;
 static int (*orig_access)(const char *pathname, int mode) = nullptr;
 static int (*orig_faccessat)(int dirfd, const char *pathname, int mode, int flags) = nullptr;
+static int (*orig_stat)(const char *pathname, struct stat *statbuf) = nullptr;
+static int (*orig_lstat)(const char *pathname, struct stat *statbuf) = nullptr;
+static int (*orig_fstatat)(int dirfd, const char *pathname, struct stat *statbuf, int flags) = nullptr;
+static int (*orig_mkdir)(const char *pathname, mode_t mode) = nullptr;
+static int (*orig_mkdirat)(int dirfd, const char *pathname, mode_t mode) = nullptr;
+static int (*orig_unlink)(const char *pathname) = nullptr;
+static int (*orig_unlinkat)(int dirfd, const char *pathname, int flags) = nullptr;
+static int (*orig_rename)(const char *oldpath, const char *newpath) = nullptr;
+static int (*orig_renameat)(int olddirfd, const char *oldpath, int newdirfd, const char *newpath) = nullptr;
 
 static int hook_openat(int dirfd, const char *pathname, int flags, ...) {
     mode_t mode = 0;
@@ -116,6 +126,73 @@ static int hook_faccessat(int dirfd, const char *pathname, int mode, int flags) 
     const char *target = redir.empty() ? pathname : redir.c_str();
     if (orig_faccessat) return orig_faccessat(dirfd, target, mode, flags);
     return static_cast<int>(syscall(__NR_faccessat, dirfd, target, mode, flags));
+}
+
+static int hook_stat(const char *pathname, struct stat *statbuf) {
+    std::string redir = redirectPath(pathname);
+    const char *target = redir.empty() ? pathname : redir.c_str();
+    if (orig_stat) return orig_stat(target, statbuf);
+    return static_cast<int>(syscall(__NR_newfstatat, AT_FDCWD, target, statbuf, 0));
+}
+
+static int hook_lstat(const char *pathname, struct stat *statbuf) {
+    std::string redir = redirectPath(pathname);
+    const char *target = redir.empty() ? pathname : redir.c_str();
+    if (orig_lstat) return orig_lstat(target, statbuf);
+    return static_cast<int>(syscall(__NR_newfstatat, AT_FDCWD, target, statbuf, AT_SYMLINK_NOFOLLOW));
+}
+
+static int hook_fstatat(int dirfd, const char *pathname, struct stat *statbuf, int flags) {
+    std::string redir = redirectPath(pathname);
+    const char *target = redir.empty() ? pathname : redir.c_str();
+    if (orig_fstatat) return orig_fstatat(dirfd, target, statbuf, flags);
+    return static_cast<int>(syscall(__NR_newfstatat, dirfd, target, statbuf, flags));
+}
+
+static int hook_mkdir(const char *pathname, mode_t mode) {
+    std::string redir = redirectPath(pathname);
+    const char *target = redir.empty() ? pathname : redir.c_str();
+    if (orig_mkdir) return orig_mkdir(target, mode);
+    return static_cast<int>(syscall(__NR_mkdirat, AT_FDCWD, target, mode));
+}
+
+static int hook_mkdirat(int dirfd, const char *pathname, mode_t mode) {
+    std::string redir = redirectPath(pathname);
+    const char *target = redir.empty() ? pathname : redir.c_str();
+    if (orig_mkdirat) return orig_mkdirat(dirfd, target, mode);
+    return static_cast<int>(syscall(__NR_mkdirat, dirfd, target, mode));
+}
+
+static int hook_unlink(const char *pathname) {
+    std::string redir = redirectPath(pathname);
+    const char *target = redir.empty() ? pathname : redir.c_str();
+    if (orig_unlink) return orig_unlink(target);
+    return static_cast<int>(syscall(__NR_unlinkat, AT_FDCWD, target, 0));
+}
+
+static int hook_unlinkat(int dirfd, const char *pathname, int flags) {
+    std::string redir = redirectPath(pathname);
+    const char *target = redir.empty() ? pathname : redir.c_str();
+    if (orig_unlinkat) return orig_unlinkat(dirfd, target, flags);
+    return static_cast<int>(syscall(__NR_unlinkat, dirfd, target, flags));
+}
+
+static int hook_rename(const char *oldpath, const char *newpath) {
+    std::string rOld = redirectPath(oldpath);
+    std::string rNew = redirectPath(newpath);
+    const char *tOld = rOld.empty() ? oldpath : rOld.c_str();
+    const char *tNew = rNew.empty() ? newpath : rNew.c_str();
+    if (orig_rename) return orig_rename(tOld, tNew);
+    return static_cast<int>(syscall(__NR_renameat2, AT_FDCWD, tOld, AT_FDCWD, tNew, 0));
+}
+
+static int hook_renameat(int olddirfd, const char *oldpath, int newdirfd, const char *newpath) {
+    std::string rOld = redirectPath(oldpath);
+    std::string rNew = redirectPath(newpath);
+    const char *tOld = rOld.empty() ? oldpath : rOld.c_str();
+    const char *tNew = rNew.empty() ? newpath : rNew.c_str();
+    if (orig_renameat) return orig_renameat(olddirfd, tOld, newdirfd, tNew);
+    return static_cast<int>(syscall(__NR_renameat2, olddirfd, tOld, newdirfd, tNew, 0));
 }
 
 // ---------------------------------------------------------------------------
@@ -200,15 +277,25 @@ static int phdrPltCallback(struct dl_phdr_info *info, size_t, void *) {
         {"openat", reinterpret_cast<void *>(hook_openat), reinterpret_cast<void **>(&orig_openat)},
         {"open", reinterpret_cast<void *>(hook_open), reinterpret_cast<void **>(&orig_open)},
         {"access", reinterpret_cast<void *>(hook_access), reinterpret_cast<void **>(&orig_access)},
-        {"faccessat", reinterpret_cast<void *>(hook_faccessat), reinterpret_cast<void **>(&orig_faccessat)}
+        {"faccessat", reinterpret_cast<void *>(hook_faccessat), reinterpret_cast<void **>(&orig_faccessat)},
+        {"stat", reinterpret_cast<void *>(hook_stat), reinterpret_cast<void **>(&orig_stat)},
+        {"lstat", reinterpret_cast<void *>(hook_lstat), reinterpret_cast<void **>(&orig_lstat)},
+        {"fstatat", reinterpret_cast<void *>(hook_fstatat), reinterpret_cast<void **>(&orig_fstatat)},
+        {"mkdir", reinterpret_cast<void *>(hook_mkdir), reinterpret_cast<void **>(&orig_mkdir)},
+        {"mkdirat", reinterpret_cast<void *>(hook_mkdirat), reinterpret_cast<void **>(&orig_mkdirat)},
+        {"unlink", reinterpret_cast<void *>(hook_unlink), reinterpret_cast<void **>(&orig_unlink)},
+        {"unlinkat", reinterpret_cast<void *>(hook_unlinkat), reinterpret_cast<void **>(&orig_unlinkat)},
+        {"rename", reinterpret_cast<void *>(hook_rename), reinterpret_cast<void **>(&orig_rename)},
+        {"renameat", reinterpret_cast<void *>(hook_renameat), reinterpret_cast<void **>(&orig_renameat)}
     };
+    size_t hookCount = sizeof(hooks) / sizeof(hooks[0]);
     long pageSize = sysconf(_SC_PAGESIZE);
 
     if (jmprel && pltRelSz > 0) {
-        patchDynamicRelocs(info->dlpi_addr, jmprel, pltRelSz / sizeof(ElfW(Rela)), symtab, strtab, hooks, 4, pageSize);
+        patchDynamicRelocs(info->dlpi_addr, jmprel, pltRelSz / sizeof(ElfW(Rela)), symtab, strtab, hooks, hookCount, pageSize);
     }
     if (rela && relaSz > 0) {
-        patchDynamicRelocs(info->dlpi_addr, rela, relaSz / sizeof(ElfW(Rela)), symtab, strtab, hooks, 4, pageSize);
+        patchDynamicRelocs(info->dlpi_addr, rela, relaSz / sizeof(ElfW(Rela)), symtab, strtab, hooks, hookCount, pageSize);
     }
     return 0;
 }
