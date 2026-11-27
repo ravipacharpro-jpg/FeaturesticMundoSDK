@@ -48,6 +48,7 @@ public final class MundoVirtualRuntime {
 
         MundoHiddenApi.exemptAll();
         MundoBinderProxy.install(stubContext, targetPkg);
+        MundoBinderProxy.install(stubContext, targetPkg);
 
         File sandboxData = MundoEngine.obtainAppDataDir(targetPkg, userId);
         if (!sandboxData.exists()) sandboxData.mkdirs();
@@ -58,6 +59,7 @@ public final class MundoVirtualRuntime {
             MundoNative.nativeInstallVfsHooks();
         }
         MundoHiddenApi.exemptAll();
+        MundoBinderProxy.install(stubContext, targetPkg);
 
         if (!sBootstrapped) {
             sBootstrapped = true;

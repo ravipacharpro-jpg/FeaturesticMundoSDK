@@ -139,7 +139,25 @@ public final class MundoBinderProxy {
                     }
                 } else if ("getContentProvider".equals(name) || "registerReceiver".equals(name)
                         || "broadcastIntent".equals(name) || "broadcastIntentWithFeature".equals(name)
-                        || "startService".equals(name) || "bindService".equals(name)) {
+                        || "startService".equals(name) || "bindService".equals(name)
+                        || "bindServiceInstance".equals(name) || "bindIsolatedService".equals(name)) {
+                    if ("bindService".equals(name) || "bindServiceInstance".equals(name)
+                            || "bindIsolatedService".equals(name)) {
+                        for (Object arg : args) {
+                            if (arg instanceof Intent) {
+                                Intent svc = (Intent) arg;
+                                String svcPkg = svc.getPackage();
+                                if (svcPkg == null && svc.getComponent() != null) {
+                                    svcPkg = svc.getComponent().getPackageName();
+                                }
+                                String action = svc.getAction();
+                                if ("com.google.android.gms".equals(svcPkg)
+                                        || (action != null && action.startsWith("com.google.android.gms"))) {
+                                    return 0;
+                                }
+                            }
+                        }
+                    }
                     for (int i = 0; i < args.length; i++) {
                         if (args[i] instanceof String && sVirtualPkg.equals(args[i])) {
                             args[i] = sHostPkg;
