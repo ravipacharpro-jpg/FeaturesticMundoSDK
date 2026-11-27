@@ -2,7 +2,10 @@ package com.featurestic.mundo.manifest;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.content.ComponentName;
 import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Build;
@@ -155,8 +158,42 @@ public class MundoOAuthWebActivity extends Activity {
         Intent result = new Intent();
         result.setData(uri);
         setResult(RESULT_OK, result);
+        relayToVirtualCallbackActivity(uri);
         finish();
         return true;
+    }
+
+    private void relayToVirtualCallbackActivity(Uri uri) {
+        String targetPkg = getIntent() != null ? getIntent().getStringExtra("mundo_target_pkg") : null;
+        if (targetPkg == null || targetPkg.isEmpty()) {
+            targetPkg = com.featurestic.mundo.core.MundoEngine.getActivePackage();
+        }
+        if (targetPkg == null || targetPkg.isEmpty()) return;
+        try {
+            PackageManager pm = getPackageManager();
+            Intent viewIntent = new Intent(Intent.ACTION_VIEW, uri);
+            viewIntent.setPackage(targetPkg);
+            java.util.List<ResolveInfo> resolved = pm.queryIntentActivities(viewIntent, 0);
+            if (resolved != null && !resolved.isEmpty()) {
+                ResolveInfo ri = resolved.get(0);
+                if (ri.activityInfo != null) {
+                    Intent real = new Intent(Intent.ACTION_VIEW, uri);
+                    real.setComponent(new ComponentName(targetPkg, ri.activityInfo.name));
+                    real.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                    int slot = Math.abs(targetPkg.hashCode()) % 8;
+                    Intent stub = new Intent();
+                    stub.setClassName(getPackageName(),
+                            "com.featurestic.mundo.manifest.MundoStubActivity$P" + slot);
+                    stub.putExtra("mundo_real_intent", real);
+                    stub.putExtra("mundo_target_pkg", targetPkg);
+                    stub.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    startActivity(stub);
+                    Log.i(TAG, "Relayed OAuth callback to " + ri.activityInfo.name);
+                }
+            }
+        } catch (Throwable t) {
+            Log.e(TAG, "relayToVirtualCallbackActivity failed", t);
+        }
     }
 
     @Override

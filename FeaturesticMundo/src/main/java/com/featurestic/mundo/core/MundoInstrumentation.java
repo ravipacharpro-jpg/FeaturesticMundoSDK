@@ -240,6 +240,7 @@ public final class MundoInstrumentation extends Instrumentation {
                         Intent web = new Intent();
                         web.setClassName(hostPkg, "com.featurestic.mundo.manifest.MundoOAuthWebActivity");
                         web.putExtra("mundo_oauth_url", intent.getDataString());
+                        web.putExtra(MundoBinderProxy.EXTRA_TARGET_PKG, targetPkg);
                         dispatchIntent = web;
                         Log.i("MundoInst", "execStartActivity routed OAuth URL to MundoOAuthWebActivity: " + host);
                     }
