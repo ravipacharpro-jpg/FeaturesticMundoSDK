@@ -3,14 +3,18 @@ package com.featurestic.mundo.core;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.ActivityInfo;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 import android.os.Build;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -23,8 +27,29 @@ public final class MundoBinderProxy {
     private static volatile boolean sInstalled = false;
     private static volatile String sHostPkg = "";
     private static volatile String sVirtualPkg = "";
+    private static volatile PackageInfo sVirtualPackageInfo = null;
+    private static volatile ApplicationInfo sVirtualAppInfo = null;
+    private static final Map<String, ActivityInfo> sVirtualActivities = new HashMap<>();
 
     private MundoBinderProxy() {}
+
+    public static void setVirtualPackageInfo(PackageInfo pi) {
+        if (pi == null) return;
+        sVirtualPackageInfo = pi;
+        if (pi.applicationInfo != null) {
+            sVirtualAppInfo = pi.applicationInfo;
+        }
+        if (pi.activities != null) {
+            synchronized (sVirtualActivities) {
+                sVirtualActivities.clear();
+                for (ActivityInfo ai : pi.activities) {
+                    if (ai != null && ai.name != null) {
+                        sVirtualActivities.put(ai.name, ai);
+                    }
+                }
+            }
+        }
+    }
 
     public static synchronized void install(Context context, String virtualPkg) {
         if (context == null) return;
@@ -254,23 +279,88 @@ public final class MundoBinderProxy {
             this.base = base;
         }
 
+        private static boolean isBlockedSocialPkg(String pkg) {
+            return "com.facebook.katana".equals(pkg)
+                    || "com.facebook.orca".equals(pkg)
+                    || "com.twitter.android".equals(pkg);
+        }
+
+        private static ActivityInfo findOrSynthesizeVirtualActivity(ComponentName comp) {
+            if (comp == null || sVirtualPkg.isEmpty()) return null;
+            String pkg = comp.getPackageName();
+            String cls = comp.getClassName();
+            if (cls == null || cls.isEmpty()) return null;
+            boolean isVirtualTarget = sVirtualPkg.equals(pkg);
+            ActivityInfo cached;
+            synchronized (sVirtualActivities) {
+                cached = sVirtualActivities.get(cls);
+            }
+            if (cached != null && (isVirtualTarget || sHostPkg.equals(pkg))) {
+                return cached;
+            }
+            if (!isVirtualTarget) return null;
+            ActivityInfo ai = new ActivityInfo();
+            ai.packageName = sVirtualPkg;
+            ai.name = cls;
+            ai.applicationInfo = sVirtualAppInfo;
+            ai.exported = true;
+            ai.enabled = true;
+            return ai;
+        }
+
+        private static ResolveInfo wrapActivityResolveInfo(ActivityInfo ai) {
+            ResolveInfo ri = new ResolveInfo();
+            ri.activityInfo = ai;
+            ri.match = 0x100000;
+            ri.priority = 0;
+            ri.preferredOrder = 0;
+            return ri;
+        }
+
         @Override
         public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
             String name = method.getName();
             if (("getPackageInfo".equals(name) || "getApplicationInfo".equals(name))
                     && args != null && args.length > 0 && args[0] instanceof String) {
                 String qPkg = (String) args[0];
-                if ("com.facebook.katana".equals(qPkg) || "com.facebook.orca".equals(qPkg)
-                        || "com.twitter.android".equals(qPkg)) {
-                    throw new android.content.pm.PackageManager.NameNotFoundException(qPkg);
+                if (isBlockedSocialPkg(qPkg)) {
+                    throw new PackageManager.NameNotFoundException(qPkg);
                 }
             }
-            Object res;
+            if ("resolveIntent".equals(name) && args != null && args.length > 0 && args[0] instanceof Intent) {
+                Intent intent = (Intent) args[0];
+                ComponentName comp = intent.getComponent();
+                String intentPkg = comp != null ? comp.getPackageName() : intent.getPackage();
+                if (isBlockedSocialPkg(intentPkg)) {
+                    return null;
+                }
+            }
+            if ("getActivityInfo".equals(name) && args != null && args.length > 0 && args[0] instanceof ComponentName) {
+                ComponentName comp = (ComponentName) args[0];
+                if (isBlockedSocialPkg(comp.getPackageName())) {
+                    throw new PackageManager.NameNotFoundException(comp.toString());
+                }
+                ActivityInfo virt = findOrSynthesizeVirtualActivity(comp);
+                if (virt != null) {
+                    return virt;
+                }
+            }
+            Object res = null;
+            Throwable caught = null;
             try {
                 res = method.invoke(base, args);
             } catch (java.lang.reflect.InvocationTargetException ite) {
-                Throwable cause = ite.getCause();
-                throw cause != null ? cause : ite;
+                caught = ite.getCause() != null ? ite.getCause() : ite;
+            }
+            if ("resolveIntent".equals(name) && res == null && args != null && args.length > 0 && args[0] instanceof Intent) {
+                Intent intent = (Intent) args[0];
+                ActivityInfo virt = findOrSynthesizeVirtualActivity(intent.getComponent());
+                if (virt != null) {
+                    return wrapActivityResolveInfo(virt);
+                }
+            }
+            if (caught != null) {
+                throw caught;
             }
             if (!sVirtualPkg.isEmpty()) {
                 if ("getPackageInfo".equals(name) && res instanceof PackageInfo) {
