@@ -30,6 +30,10 @@ public final class MundoEngine {
     private static volatile Context sHostContext;
     private static volatile String sExternalRootDir = "";
     private static volatile String sActivePackage = "";
+
+    public static String getActivePackage() {
+        return sActivePackage;
+    }
     private static volatile String sRemoteServerUrl = "https://featurestic-box-panel.vercel.app/api/public/connect";
     private static volatile boolean sActivated = false;
     private static volatile String sActivationMsg = "Not activated";
