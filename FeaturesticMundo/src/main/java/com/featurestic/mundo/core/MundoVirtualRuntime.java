@@ -249,6 +249,14 @@ public final class MundoVirtualRuntime {
                             Log.i("MundoRuntime", "Calling sVirtualApp.onCreate()");
                             sVirtualApp.onCreate();
                             Log.i("MundoRuntime", "sVirtualApp.onCreate() completed");
+                            try {
+                                Intent testFb = new Intent();
+                                testFb.setClassName(ai.packageName, "com.facebook.FacebookActivity");
+                                Object ri = sVirtualApp.getPackageManager().resolveActivity(testFb, 0);
+                                Log.i("MundoBinder", "SELF-TEST resolveActivity(FacebookActivity)=" + ri);
+                            } catch (Throwable t) {
+                                Log.e("MundoBinder", "SELF-TEST resolveActivity failed", t);
+                            }
                         }
                     }
                 } catch (Throwable t) {
