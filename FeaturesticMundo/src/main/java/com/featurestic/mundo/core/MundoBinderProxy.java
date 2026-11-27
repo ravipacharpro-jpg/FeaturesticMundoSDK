@@ -228,7 +228,21 @@ public final class MundoBinderProxy {
         @Override
         public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
             String name = method.getName();
-            Object res = method.invoke(base, args);
+            if (("getPackageInfo".equals(name) || "getApplicationInfo".equals(name))
+                    && args != null && args.length > 0 && args[0] instanceof String) {
+                String qPkg = (String) args[0];
+                if ("com.facebook.katana".equals(qPkg) || "com.facebook.orca".equals(qPkg)
+                        || "com.twitter.android".equals(qPkg)) {
+                    throw new android.content.pm.PackageManager.NameNotFoundException(qPkg);
+                }
+            }
+            Object res;
+            try {
+                res = method.invoke(base, args);
+            } catch (java.lang.reflect.InvocationTargetException ite) {
+                Throwable cause = ite.getCause();
+                throw cause != null ? cause : ite;
+            }
             if (!sVirtualPkg.isEmpty()) {
                 if ("getPackageInfo".equals(name) && res instanceof PackageInfo) {
                     PackageInfo pi = (PackageInfo) res;

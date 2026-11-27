@@ -47,6 +47,12 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name="com.featurestic.mundo.manifest.MundoOAuthWebActivity"
+            android:exported="false"
+            android:configChanges="orientation|screenSize|keyboardHidden|smallestScreenSize|screenLayout"
+            android:theme="@android:style/Theme.NoTitleBar.Fullscreen" />
+
         <activity-alias
             android:name="com.featurestic.mundo.FBLoginAbility"
             android:enabled="true"
@@ -58,6 +64,23 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="fbconnect" />
+                <data android:scheme="itopfacebook" />
+                <data android:scheme="itopfacebook1450" />
+                <data android:scheme="twittersdk" />
+                <data android:scheme="twitterkit" />
+                <data android:scheme="twitter" />
+                <data android:scheme="twitterauth" />
+                <data android:scheme="oauth-twitter" />
+                <data android:scheme="xauth" />
+                <data android:scheme="x" />
+                <data android:scheme="itoptwitter" />
+                <data android:scheme="itoptwitter1450" />
+                <data android:scheme="itopdiscord" />
+                <data android:scheme="itopdiscord1450" />
+                <data android:scheme="itopapple" />
+                <data android:scheme="itopapple1450" />
+                <data android:scheme="imobile1450" />
+                <data android:scheme="igproxy1450" />
             </intent-filter>
         </activity-alias>
 

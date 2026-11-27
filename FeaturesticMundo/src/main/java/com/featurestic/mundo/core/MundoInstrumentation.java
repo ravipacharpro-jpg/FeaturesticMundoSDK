@@ -232,6 +232,17 @@ public final class MundoInstrumentation extends Instrumentation {
                     wrapped.addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION);
                     dispatchIntent = wrapped;
                     Log.i("MundoInst", "execStartActivity wrapped virtual target: " + cn);
+                } else if (Intent.ACTION_VIEW.equals(intent.getAction()) && intent.getData() != null) {
+                    String scheme = intent.getData().getScheme();
+                    String host = intent.getData().getHost();
+                    if (("http".equalsIgnoreCase(scheme) || "https".equalsIgnoreCase(scheme))
+                            && isOAuthHost(host)) {
+                        Intent web = new Intent();
+                        web.setClassName(hostPkg, "com.featurestic.mundo.manifest.MundoOAuthWebActivity");
+                        web.putExtra("mundo_oauth_url", intent.getDataString());
+                        dispatchIntent = web;
+                        Log.i("MundoInst", "execStartActivity routed OAuth URL to MundoOAuthWebActivity: " + host);
+                    }
                 }
             }
         } catch (Throwable t) {
@@ -248,5 +259,17 @@ public final class MundoInstrumentation extends Instrumentation {
             Log.e("MundoInst", "execStartActivity invoke failed", t);
             return null;
         }
+    }
+
+    private static boolean isOAuthHost(String host) {
+        if (host == null || host.isEmpty()) return false;
+        String h = host.toLowerCase();
+        return h.contains("facebook.com") || h.contains("fb.com")
+                || h.contains("twitter.com") || h.equals("x.com") || h.endsWith(".x.com")
+                || h.contains("globh.com") || h.contains("krafton.com")
+                || h.contains("discord.com") || h.contains("discordapp.com")
+                || h.contains("appleid.apple.com") || h.contains("vk.com")
+                || h.contains("accounts.google.com") || h.contains("line.me")
+                || h.contains("kakao.com") || h.contains("tiktok.com");
     }
 }
