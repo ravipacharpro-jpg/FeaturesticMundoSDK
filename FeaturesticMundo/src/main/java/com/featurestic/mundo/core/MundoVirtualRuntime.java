@@ -174,6 +174,11 @@ public final class MundoVirtualRuntime {
             ai.dataDir = sandboxData.getAbsolutePath();
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                 ai.deviceProtectedDataDir = sandboxData.getAbsolutePath();
+                try {
+                    Field credField = ApplicationInfo.class.getDeclaredField("credentialProtectedDataDir");
+                    credField.setAccessible(true);
+                    credField.set(ai, sandboxData.getAbsolutePath());
+                } catch (Throwable ignored) {}
             }
 
             Class<?> compatClass = Class.forName("android.content.res.CompatibilityInfo");
@@ -185,6 +190,18 @@ public final class MundoVirtualRuntime {
             getPkgNoCheck.setAccessible(true);
             Object loadedApk = getPkgNoCheck.invoke(activityThread, ai, defaultCompat);
             if (loadedApk != null) {
+                for (String df : new String[]{"mDataDirFile", "mDeviceProtectedDataDirFile", "mCredentialProtectedDataDirFile"}) {
+                    try {
+                        Field f = loadedApk.getClass().getDeclaredField(df);
+                        f.setAccessible(true);
+                        f.set(loadedApk, sandboxData);
+                    } catch (Throwable ignored) {}
+                }
+                try {
+                    Field mDataDirField = loadedApk.getClass().getDeclaredField("mDataDir");
+                    mDataDirField.setAccessible(true);
+                    mDataDirField.set(loadedApk, sandboxData.getAbsolutePath());
+                } catch (Throwable ignored) {}
                 Field clField = loadedApk.getClass().getDeclaredField("mClassLoader");
                 clField.setAccessible(true);
                 clField.set(loadedApk, virtualLoader);
