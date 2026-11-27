@@ -173,15 +173,28 @@ public final class MundoInstrumentation extends Instrumentation {
             Method addAssetPath = AssetManager.class.getDeclaredMethod("addAssetPath", String.class);
             addAssetPath.setAccessible(true);
             addAssetPath.invoke(am, sourceDir);
-            Resources hostRes = activity.getResources();
+            Resources hostRes = activity.getBaseContext().getResources();
             Resources virtRes = new Resources(am, hostRes.getDisplayMetrics(), hostRes.getConfiguration());
-            Field resField = Context.class.getClassLoader() != null
-                    ? activity.getBaseContext().getClass().getDeclaredField("mResources") : null;
-            if (resField != null) {
-                resField.setAccessible(true);
-                resField.set(activity.getBaseContext(), virtRes);
+
+            Field baseResField = activity.getBaseContext().getClass().getDeclaredField("mResources");
+            baseResField.setAccessible(true);
+            baseResField.set(activity.getBaseContext(), virtRes);
+
+            try {
+                Class<?> ctw = android.view.ContextThemeWrapper.class;
+                Field actResField = ctw.getDeclaredField("mResources");
+                actResField.setAccessible(true);
+                actResField.set(activity, virtRes);
+                Field actThemeField = ctw.getDeclaredField("mTheme");
+                actThemeField.setAccessible(true);
+                actThemeField.set(activity, null);
+            } catch (Throwable t) {
+                Log.e("MundoInst", "ContextThemeWrapper mResources set failed", t);
             }
-        } catch (Throwable ignored) {}
+            Log.i("MundoInst", "Attached virtual resources for " + activity.getClass().getSimpleName());
+        } catch (Throwable t) {
+            Log.e("MundoInst", "attachVirtualResources failed", t);
+        }
     }
 
     public ActivityResult execStartActivity(
