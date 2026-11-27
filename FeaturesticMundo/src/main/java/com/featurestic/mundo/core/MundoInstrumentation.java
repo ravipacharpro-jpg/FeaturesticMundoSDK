@@ -155,6 +155,9 @@ public final class MundoInstrumentation extends Instrumentation {
                             Field aiField = Activity.class.getDeclaredField("mActivityInfo");
                             aiField.setAccessible(true);
                             aiField.set(activity, realAi);
+                            if (realAi.screenOrientation != ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED) {
+                                activity.setRequestedOrientation(realAi.screenOrientation);
+                            }
                         } catch (Throwable ignored) {}
                     }
                 }

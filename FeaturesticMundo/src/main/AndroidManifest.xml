@@ -61,13 +61,13 @@
             </intent-filter>
         </activity-alias>
 
-        <activity android:name="com.featurestic.mundo.manifest.MundoStubActivity$P0" android:process=":mundo_p0" android:exported="false" android:configChanges="orientation|screenSize|keyboardHidden|smallestScreenSize|screenLayout" />
-        <activity android:name="com.featurestic.mundo.manifest.MundoStubActivity$P1" android:process=":mundo_p1" android:exported="false" android:configChanges="orientation|screenSize|keyboardHidden|smallestScreenSize|screenLayout" />
-        <activity android:name="com.featurestic.mundo.manifest.MundoStubActivity$P2" android:process=":mundo_p2" android:exported="false" android:configChanges="orientation|screenSize|keyboardHidden|smallestScreenSize|screenLayout" />
-        <activity android:name="com.featurestic.mundo.manifest.MundoStubActivity$P3" android:process=":mundo_p3" android:exported="false" android:configChanges="orientation|screenSize|keyboardHidden|smallestScreenSize|screenLayout" />
-        <activity android:name="com.featurestic.mundo.manifest.MundoStubActivity$P4" android:process=":mundo_p4" android:exported="false" android:configChanges="orientation|screenSize|keyboardHidden|smallestScreenSize|screenLayout" />
-        <activity android:name="com.featurestic.mundo.manifest.MundoStubActivity$P5" android:process=":mundo_p5" android:exported="false" android:configChanges="orientation|screenSize|keyboardHidden|smallestScreenSize|screenLayout" />
-        <activity android:name="com.featurestic.mundo.manifest.MundoStubActivity$P6" android:process=":mundo_p6" android:exported="false" android:configChanges="orientation|screenSize|keyboardHidden|smallestScreenSize|screenLayout" />
-        <activity android:name="com.featurestic.mundo.manifest.MundoStubActivity$P7" android:process=":mundo_p7" android:exported="false" android:configChanges="orientation|screenSize|keyboardHidden|smallestScreenSize|screenLayout" />
+        <activity android:name="com.featurestic.mundo.manifest.MundoStubActivity$P0" android:process=":mundo_p0" android:exported="false" android:theme="@android:style/Theme.NoTitleBar.Fullscreen" android:configChanges="orientation|screenSize|keyboardHidden|smallestScreenSize|screenLayout" />
+        <activity android:name="com.featurestic.mundo.manifest.MundoStubActivity$P1" android:process=":mundo_p1" android:exported="false" android:theme="@android:style/Theme.NoTitleBar.Fullscreen" android:configChanges="orientation|screenSize|keyboardHidden|smallestScreenSize|screenLayout" />
+        <activity android:name="com.featurestic.mundo.manifest.MundoStubActivity$P2" android:process=":mundo_p2" android:exported="false" android:theme="@android:style/Theme.NoTitleBar.Fullscreen" android:configChanges="orientation|screenSize|keyboardHidden|smallestScreenSize|screenLayout" />
+        <activity android:name="com.featurestic.mundo.manifest.MundoStubActivity$P3" android:process=":mundo_p3" android:exported="false" android:theme="@android:style/Theme.NoTitleBar.Fullscreen" android:configChanges="orientation|screenSize|keyboardHidden|smallestScreenSize|screenLayout" />
+        <activity android:name="com.featurestic.mundo.manifest.MundoStubActivity$P4" android:process=":mundo_p4" android:exported="false" android:theme="@android:style/Theme.NoTitleBar.Fullscreen" android:configChanges="orientation|screenSize|keyboardHidden|smallestScreenSize|screenLayout" />
+        <activity android:name="com.featurestic.mundo.manifest.MundoStubActivity$P5" android:process=":mundo_p5" android:exported="false" android:theme="@android:style/Theme.NoTitleBar.Fullscreen" android:configChanges="orientation|screenSize|keyboardHidden|smallestScreenSize|screenLayout" />
+        <activity android:name="com.featurestic.mundo.manifest.MundoStubActivity$P6" android:process=":mundo_p6" android:exported="false" android:theme="@android:style/Theme.NoTitleBar.Fullscreen" android:configChanges="orientation|screenSize|keyboardHidden|smallestScreenSize|screenLayout" />
+        <activity android:name="com.featurestic.mundo.manifest.MundoStubActivity$P7" android:process=":mundo_p7" android:exported="false" android:theme="@android:style/Theme.NoTitleBar.Fullscreen" android:configChanges="orientation|screenSize|keyboardHidden|smallestScreenSize|screenLayout" />
     </application>
 </manifest>
