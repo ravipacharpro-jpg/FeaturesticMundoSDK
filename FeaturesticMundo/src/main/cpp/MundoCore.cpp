@@ -65,7 +65,9 @@ static std::string redirectPath(const char *path) {
 }
 
 static int (*orig_openat)(int dirfd, const char *pathname, int flags, ...) = nullptr;
+static int (*orig_openat_2)(int dirfd, const char *pathname, int flags) = nullptr;
 static int (*orig_open)(const char *pathname, int flags, ...) = nullptr;
+static int (*orig_open_2)(const char *pathname, int flags) = nullptr;
 static int (*orig_access)(const char *pathname, int mode) = nullptr;
 static int (*orig_faccessat)(int dirfd, const char *pathname, int mode, int flags) = nullptr;
 static int (*orig_stat)(const char *pathname, struct stat *statbuf) = nullptr;
@@ -96,6 +98,13 @@ static int hook_openat(int dirfd, const char *pathname, int flags, ...) {
     return static_cast<int>(syscall(__NR_openat, dirfd, target, flags, mode));
 }
 
+static int hook_openat_2(int dirfd, const char *pathname, int flags) {
+    std::string redir = redirectPath(pathname);
+    const char *target = redir.empty() ? pathname : redir.c_str();
+    if (orig_openat_2) return orig_openat_2(dirfd, target, flags);
+    return static_cast<int>(syscall(__NR_openat, dirfd, target, flags, 0));
+}
+
 static int hook_open(const char *pathname, int flags, ...) {
     mode_t mode = 0;
     if (flags & (O_CREAT | O_TMPFILE)) {
@@ -112,6 +121,13 @@ static int hook_open(const char *pathname, int flags, ...) {
                : orig_open(target, flags);
     }
     return static_cast<int>(syscall(__NR_openat, AT_FDCWD, target, flags, mode));
+}
+
+static int hook_open_2(const char *pathname, int flags) {
+    std::string redir = redirectPath(pathname);
+    const char *target = redir.empty() ? pathname : redir.c_str();
+    if (orig_open_2) return orig_open_2(target, flags);
+    return static_cast<int>(syscall(__NR_openat, AT_FDCWD, target, flags, 0));
 }
 
 static int hook_access(const char *pathname, int mode) {
@@ -276,10 +292,10 @@ static int phdrPltCallback(struct dl_phdr_info *info, size_t, void *) {
     PltHookEntry hooks[] = {
         {"openat", reinterpret_cast<void *>(hook_openat), reinterpret_cast<void **>(&orig_openat)},
         {"openat64", reinterpret_cast<void *>(hook_openat), reinterpret_cast<void **>(&orig_openat)},
-        {"__openat_2", reinterpret_cast<void *>(hook_openat), reinterpret_cast<void **>(&orig_openat)},
+        {"__openat_2", reinterpret_cast<void *>(hook_openat_2), reinterpret_cast<void **>(&orig_openat_2)},
         {"open", reinterpret_cast<void *>(hook_open), reinterpret_cast<void **>(&orig_open)},
         {"open64", reinterpret_cast<void *>(hook_open), reinterpret_cast<void **>(&orig_open)},
-        {"__open_2", reinterpret_cast<void *>(hook_open), reinterpret_cast<void **>(&orig_open)},
+        {"__open_2", reinterpret_cast<void *>(hook_open_2), reinterpret_cast<void **>(&orig_open_2)},
         {"access", reinterpret_cast<void *>(hook_access), reinterpret_cast<void **>(&orig_access)},
         {"faccessat", reinterpret_cast<void *>(hook_faccessat), reinterpret_cast<void **>(&orig_faccessat)},
         {"stat", reinterpret_cast<void *>(hook_stat), reinterpret_cast<void **>(&orig_stat)},
