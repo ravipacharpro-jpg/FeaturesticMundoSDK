@@ -14,6 +14,8 @@
 #include <elf.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
+#include <sys/vfs.h>
+#include <sys/statvfs.h>
 #include <sys/syscall.h>
 #include <errno.h>
 #include <dirent.h>
@@ -111,6 +113,10 @@ static FILE *(*orig_fopen)(const char *pathname, const char *mode) = nullptr;
 static DIR *(*orig_opendir)(const char *name) = nullptr;
 static int (*orig_remove)(const char *pathname) = nullptr;
 static int (*orig_rmdir)(const char *pathname) = nullptr;
+static int (*orig_statfs)(const char *path, struct statfs *buf) = nullptr;
+static int (*orig_statfs64)(const char *path, struct statfs64 *buf) = nullptr;
+static int (*orig_statvfs)(const char *path, struct statvfs *buf) = nullptr;
+static int (*orig_statvfs64)(const char *path, struct statvfs64 *buf) = nullptr;
 static void *(*orig_dlopen)(const char *filename, int flags) = nullptr;
 static void *(*orig_android_dlopen_ext)(const char *filename, int flags, const void *extinfo) = nullptr;
 
@@ -275,6 +281,46 @@ static int hook_rmdir(const char *pathname) {
     return rmdir(target);
 }
 
+static int hook_statfs(const char *path, struct statfs *buf) {
+    std::string redir = redirectPath(path);
+    const char *target = redir.empty() ? path : redir.c_str();
+    int rc = orig_statfs ? orig_statfs(target, buf) : statfs(target, buf);
+    if (rc != 0 && !redir.empty() && buf) {
+        rc = orig_statfs ? orig_statfs("/storage/emulated/0", buf) : statfs("/storage/emulated/0", buf);
+    }
+    return rc;
+}
+
+static int hook_statfs64(const char *path, struct statfs64 *buf) {
+    std::string redir = redirectPath(path);
+    const char *target = redir.empty() ? path : redir.c_str();
+    int rc = orig_statfs64 ? orig_statfs64(target, buf) : statfs64(target, buf);
+    if (rc != 0 && !redir.empty() && buf) {
+        rc = orig_statfs64 ? orig_statfs64("/storage/emulated/0", buf) : statfs64("/storage/emulated/0", buf);
+    }
+    return rc;
+}
+
+static int hook_statvfs(const char *path, struct statvfs *buf) {
+    std::string redir = redirectPath(path);
+    const char *target = redir.empty() ? path : redir.c_str();
+    int rc = orig_statvfs ? orig_statvfs(target, buf) : statvfs(target, buf);
+    if (rc != 0 && !redir.empty() && buf) {
+        rc = orig_statvfs ? orig_statvfs("/storage/emulated/0", buf) : statvfs("/storage/emulated/0", buf);
+    }
+    return rc;
+}
+
+static int hook_statvfs64(const char *path, struct statvfs64 *buf) {
+    std::string redir = redirectPath(path);
+    const char *target = redir.empty() ? path : redir.c_str();
+    int rc = orig_statvfs64 ? orig_statvfs64(target, buf) : statvfs64(target, buf);
+    if (rc != 0 && !redir.empty() && buf) {
+        rc = orig_statvfs64 ? orig_statvfs64("/storage/emulated/0", buf) : statvfs64("/storage/emulated/0", buf);
+    }
+    return rc;
+}
+
 static void *hook_dlopen(const char *filename, int flags) {
     void *h = orig_dlopen ? orig_dlopen(filename, flags) : dlopen(filename, flags);
     if (h) dl_iterate_phdr(phdrPltCallback, nullptr);
@@ -391,6 +437,10 @@ static int phdrPltCallback(struct dl_phdr_info *info, size_t, void *) {
         {"opendir", reinterpret_cast<void *>(hook_opendir), reinterpret_cast<void **>(&orig_opendir)},
         {"remove", reinterpret_cast<void *>(hook_remove), reinterpret_cast<void **>(&orig_remove)},
         {"rmdir", reinterpret_cast<void *>(hook_rmdir), reinterpret_cast<void **>(&orig_rmdir)},
+        {"statfs", reinterpret_cast<void *>(hook_statfs), reinterpret_cast<void **>(&orig_statfs)},
+        {"statfs64", reinterpret_cast<void *>(hook_statfs64), reinterpret_cast<void **>(&orig_statfs64)},
+        {"statvfs", reinterpret_cast<void *>(hook_statvfs), reinterpret_cast<void **>(&orig_statvfs)},
+        {"statvfs64", reinterpret_cast<void *>(hook_statvfs64), reinterpret_cast<void **>(&orig_statvfs64)},
         {"dlopen", reinterpret_cast<void *>(hook_dlopen), reinterpret_cast<void **>(&orig_dlopen)},
         {"android_dlopen_ext", reinterpret_cast<void *>(hook_android_dlopen_ext), reinterpret_cast<void **>(&orig_android_dlopen_ext)}
     };
