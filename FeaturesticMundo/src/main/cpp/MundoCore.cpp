@@ -15,6 +15,8 @@
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
+#include <errno.h>
+#include <dirent.h>
 #include <android/log.h>
 
 #define TAG "MundoEngine"
@@ -105,6 +107,8 @@ static int (*orig_unlink)(const char *pathname) = nullptr;
 static int (*orig_unlinkat)(int dirfd, const char *pathname, int flags) = nullptr;
 static int (*orig_rename)(const char *oldpath, const char *newpath) = nullptr;
 static int (*orig_renameat)(int olddirfd, const char *oldpath, int newdirfd, const char *newpath) = nullptr;
+static FILE *(*orig_fopen)(const char *pathname, const char *mode) = nullptr;
+static DIR *(*orig_opendir)(const char *name) = nullptr;
 static void *(*orig_dlopen)(const char *filename, int flags) = nullptr;
 static void *(*orig_android_dlopen_ext)(const char *filename, int flags, const void *extinfo) = nullptr;
 
@@ -241,6 +245,20 @@ static int hook_renameat(int olddirfd, const char *oldpath, int newdirfd, const 
     return static_cast<int>(syscall(__NR_renameat2, olddirfd, tOld, newdirfd, tNew, 0));
 }
 
+static FILE *hook_fopen(const char *pathname, const char *mode) {
+    std::string redir = redirectPath(pathname);
+    const char *target = redir.empty() ? pathname : redir.c_str();
+    if (orig_fopen) return orig_fopen(target, mode);
+    return fopen(target, mode);
+}
+
+static DIR *hook_opendir(const char *name) {
+    std::string redir = redirectPath(name);
+    const char *target = redir.empty() ? name : redir.c_str();
+    if (orig_opendir) return orig_opendir(target);
+    return opendir(target);
+}
+
 static void *hook_dlopen(const char *filename, int flags) {
     void *h = orig_dlopen ? orig_dlopen(filename, flags) : dlopen(filename, flags);
     if (h) dl_iterate_phdr(phdrPltCallback, nullptr);
@@ -352,6 +370,9 @@ static int phdrPltCallback(struct dl_phdr_info *info, size_t, void *) {
         {"unlinkat", reinterpret_cast<void *>(hook_unlinkat), reinterpret_cast<void **>(&orig_unlinkat)},
         {"rename", reinterpret_cast<void *>(hook_rename), reinterpret_cast<void **>(&orig_rename)},
         {"renameat", reinterpret_cast<void *>(hook_renameat), reinterpret_cast<void **>(&orig_renameat)},
+        {"fopen", reinterpret_cast<void *>(hook_fopen), reinterpret_cast<void **>(&orig_fopen)},
+        {"fopen64", reinterpret_cast<void *>(hook_fopen), reinterpret_cast<void **>(&orig_fopen)},
+        {"opendir", reinterpret_cast<void *>(hook_opendir), reinterpret_cast<void **>(&orig_opendir)},
         {"dlopen", reinterpret_cast<void *>(hook_dlopen), reinterpret_cast<void **>(&orig_dlopen)},
         {"android_dlopen_ext", reinterpret_cast<void *>(hook_android_dlopen_ext), reinterpret_cast<void **>(&orig_android_dlopen_ext)}
     };
