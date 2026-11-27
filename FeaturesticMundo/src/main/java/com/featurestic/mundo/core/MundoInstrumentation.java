@@ -165,10 +165,16 @@ public final class MundoInstrumentation extends Instrumentation {
         }
         Log.i("MundoInst", "callActivityOnCreate: " + (activity != null ? activity.getClass().getName() : "null"));
         base.callActivityOnCreate(activity, icicle);
+        if (MundoNative.isLoaded()) {
+            MundoNative.nativeInstallVfsHooks();
+        }
     }
 
     @Override
     public void callActivityOnResume(Activity activity) {
+        if (MundoNative.isLoaded()) {
+            MundoNative.nativeInstallVfsHooks();
+        }
         base.callActivityOnResume(activity);
         if (MundoStreamproofGuard.isEnabled() && activity != null) {
             MundoStreamproofGuard.applyNow(activity);

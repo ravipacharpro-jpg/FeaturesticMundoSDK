@@ -78,6 +78,14 @@ static std::string redirectPath(const char *path) {
                 return hostObb;
             }
         }
+        std::string extData1 = "/storage/emulated/0/Android/data/" + gActivePkg;
+        std::string extData2 = "/sdcard/Android/data/" + gActivePkg;
+        if (p.rfind(extData1, 0) == 0) {
+            return "/storage/emulated/0/Android/data/" + gHostPkg + p.substr(extData1.length());
+        }
+        if (p.rfind(extData2, 0) == 0) {
+            return "/sdcard/Android/data/" + gHostPkg + p.substr(extData2.length());
+        }
     }
     return "";
 }
@@ -97,6 +105,10 @@ static int (*orig_unlink)(const char *pathname) = nullptr;
 static int (*orig_unlinkat)(int dirfd, const char *pathname, int flags) = nullptr;
 static int (*orig_rename)(const char *oldpath, const char *newpath) = nullptr;
 static int (*orig_renameat)(int olddirfd, const char *oldpath, int newdirfd, const char *newpath) = nullptr;
+static void *(*orig_dlopen)(const char *filename, int flags) = nullptr;
+static void *(*orig_android_dlopen_ext)(const char *filename, int flags, const void *extinfo) = nullptr;
+
+static int phdrPltCallback(struct dl_phdr_info *info, size_t, void *);
 
 static int hook_openat(int dirfd, const char *pathname, int flags, ...) {
     mode_t mode = 0;
@@ -229,6 +241,18 @@ static int hook_renameat(int olddirfd, const char *oldpath, int newdirfd, const 
     return static_cast<int>(syscall(__NR_renameat2, olddirfd, tOld, newdirfd, tNew, 0));
 }
 
+static void *hook_dlopen(const char *filename, int flags) {
+    void *h = orig_dlopen ? orig_dlopen(filename, flags) : dlopen(filename, flags);
+    if (h) dl_iterate_phdr(phdrPltCallback, nullptr);
+    return h;
+}
+
+static void *hook_android_dlopen_ext(const char *filename, int flags, const void *extinfo) {
+    void *h = orig_android_dlopen_ext ? orig_android_dlopen_ext(filename, flags, extinfo) : nullptr;
+    if (h) dl_iterate_phdr(phdrPltCallback, nullptr);
+    return h;
+}
+
 // ---------------------------------------------------------------------------
 // Self-contained ARM64 ELF64 GOT/PLT Hook Engine
 // ---------------------------------------------------------------------------
@@ -327,7 +351,9 @@ static int phdrPltCallback(struct dl_phdr_info *info, size_t, void *) {
         {"unlink", reinterpret_cast<void *>(hook_unlink), reinterpret_cast<void **>(&orig_unlink)},
         {"unlinkat", reinterpret_cast<void *>(hook_unlinkat), reinterpret_cast<void **>(&orig_unlinkat)},
         {"rename", reinterpret_cast<void *>(hook_rename), reinterpret_cast<void **>(&orig_rename)},
-        {"renameat", reinterpret_cast<void *>(hook_renameat), reinterpret_cast<void **>(&orig_renameat)}
+        {"renameat", reinterpret_cast<void *>(hook_renameat), reinterpret_cast<void **>(&orig_renameat)},
+        {"dlopen", reinterpret_cast<void *>(hook_dlopen), reinterpret_cast<void **>(&orig_dlopen)},
+        {"android_dlopen_ext", reinterpret_cast<void *>(hook_android_dlopen_ext), reinterpret_cast<void **>(&orig_android_dlopen_ext)}
     };
     size_t hookCount = sizeof(hooks) / sizeof(hooks[0]);
     long pageSize = sysconf(_SC_PAGESIZE);
@@ -373,9 +399,10 @@ Java_com_featurestic_mundo_core_MundoNative_nativeInit(
 
 extern "C" JNIEXPORT jboolean JNICALL
 Java_com_featurestic_mundo_core_MundoNative_nativeInstallVfsHooks(JNIEnv *, jclass) {
-    if (gVfsHooked.exchange(true)) return JNI_TRUE;
     dl_iterate_phdr(phdrPltCallback, nullptr);
-    LOGI("Installed native ARM64 PLT/GOT VFS hooks");
+    if (!gVfsHooked.exchange(true)) {
+        LOGI("Installed native ARM64 PLT/GOT VFS hooks");
+    }
     return JNI_TRUE;
 }
 
