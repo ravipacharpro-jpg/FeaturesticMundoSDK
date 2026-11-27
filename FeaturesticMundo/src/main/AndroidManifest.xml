@@ -16,6 +16,10 @@
             android:name="android.window.PROPERTY_COMPAT_ALLOW_RESTRICTED_RESIZABILITY"
             android:value="true" />
 
+        <uses-library
+            android:name="org.apache.http.legacy"
+            android:required="false" />
+
         <provider
             android:name="com.featurestic.mundo.supervisor.MundoSupervisorProvider"
             android:authorities="${applicationId}.mundo.service.provider"

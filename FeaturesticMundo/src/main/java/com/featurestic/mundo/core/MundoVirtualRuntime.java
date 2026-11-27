@@ -66,13 +66,26 @@ public final class MundoVirtualRuntime {
 
             try {
                 PackageManager pm = stubContext.getPackageManager();
-                PackageInfo pi = pm.getPackageInfo(targetPkg, PackageManager.GET_META_DATA);
+                PackageInfo pi = pm.getPackageInfo(targetPkg,
+                        PackageManager.GET_META_DATA | PackageManager.GET_SHARED_LIBRARY_FILES);
                 ApplicationInfo ai = pi.applicationInfo;
                 if (ai != null) {
                     String apkPath = (sourceDir != null && !sourceDir.isEmpty()) ? sourceDir : ai.publicSourceDir;
                     String libPath = (nativeLibDir != null && !nativeLibDir.isEmpty()) ? nativeLibDir : ai.nativeLibraryDir;
+                    StringBuilder dexPath = new StringBuilder(apkPath != null ? apkPath : "");
+                    if (ai.sharedLibraryFiles != null) {
+                        for (String lib : ai.sharedLibraryFiles) {
+                            if (lib != null && !lib.isEmpty()) {
+                                dexPath.append(File.pathSeparator).append(lib);
+                            }
+                        }
+                    }
+                    File legacyHttp = new File("/system/framework/org.apache.http.legacy.jar");
+                    if (legacyHttp.exists() && dexPath.indexOf("org.apache.http.legacy.jar") < 0) {
+                        dexPath.append(File.pathSeparator).append(legacyHttp.getAbsolutePath());
+                    }
 
-                    sVirtualLoader = new PathClassLoader(apkPath, libPath, stubContext.getClassLoader().getParent());
+                    sVirtualLoader = new PathClassLoader(dexPath.toString(), libPath, stubContext.getClassLoader().getParent());
                     bindLoadedApkAndApplication(stubContext, ai, sVirtualLoader, sandboxData, apkPath);
                 }
             } catch (Throwable t) {
