@@ -287,6 +287,15 @@ public final class MundoBinderProxy {
                             }
                         }
                     }
+                    if ("checkPermission".equals(name) || "checkPermissionWithToken".equals(name)) {
+                        if (args.length > 0 && args[0] instanceof String) {
+                            String perm = (String) args[0];
+                            if (android.Manifest.permission.READ_EXTERNAL_STORAGE.equals(perm)
+                                    || android.Manifest.permission.WRITE_EXTERNAL_STORAGE.equals(perm)) {
+                                return PackageManager.PERMISSION_GRANTED;
+                            }
+                        }
+                    }
                     // Rewrite callingPackage from virtualPkg to hostPkg across all AMS calls
                     for (int i = 0; i < args.length; i++) {
                         if (args[i] instanceof String && sVirtualPkg.equals(args[i])) {

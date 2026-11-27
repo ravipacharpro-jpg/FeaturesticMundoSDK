@@ -73,6 +73,11 @@ public final class MundoVirtualRuntime {
             if (!subDir.exists()) subDir.mkdirs();
         }
         File hostObb = new File(Environment.getExternalStorageDirectory(), "Android/obb/" + targetPkg);
+        try {
+            stubContext.getExternalFilesDir(null);
+            stubContext.getExternalCacheDir();
+            stubContext.getObbDir();
+        } catch (Throwable ignored) {}
 
         if (MundoNative.isLoaded()) {
             MundoNative.nativeInit(stubContext.getPackageName(), targetPkg, sandboxData.getAbsolutePath(), hostObb.getAbsolutePath());
