@@ -370,6 +370,9 @@ public final class MundoBinderProxy {
             } catch (java.lang.reflect.InvocationTargetException ite) {
                 caught = ite.getCause() != null ? ite.getCause() : ite;
             }
+            if ("resolveIntent".equals(name) || "getActivityInfo".equals(name) || "queryIntentActivities".equals(name)) {
+                Log.i("MundoBinder", "PMS " + name + " arg0=" + (args != null && args.length > 0 ? args[0] : "null"));
+            }
             if ("resolveIntent".equals(name) && res == null && args != null && args.length > 0 && args[0] instanceof Intent) {
                 Intent intent = (Intent) args[0];
                 ActivityInfo virt = findOrSynthesizeVirtualActivity(intent.getComponent());
