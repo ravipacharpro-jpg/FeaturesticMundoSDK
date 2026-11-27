@@ -109,6 +109,8 @@ static int (*orig_rename)(const char *oldpath, const char *newpath) = nullptr;
 static int (*orig_renameat)(int olddirfd, const char *oldpath, int newdirfd, const char *newpath) = nullptr;
 static FILE *(*orig_fopen)(const char *pathname, const char *mode) = nullptr;
 static DIR *(*orig_opendir)(const char *name) = nullptr;
+static int (*orig_remove)(const char *pathname) = nullptr;
+static int (*orig_rmdir)(const char *pathname) = nullptr;
 static void *(*orig_dlopen)(const char *filename, int flags) = nullptr;
 static void *(*orig_android_dlopen_ext)(const char *filename, int flags, const void *extinfo) = nullptr;
 
@@ -259,6 +261,20 @@ static DIR *hook_opendir(const char *name) {
     return opendir(target);
 }
 
+static int hook_remove(const char *pathname) {
+    std::string redir = redirectPath(pathname);
+    const char *target = redir.empty() ? pathname : redir.c_str();
+    if (orig_remove) return orig_remove(target);
+    return remove(target);
+}
+
+static int hook_rmdir(const char *pathname) {
+    std::string redir = redirectPath(pathname);
+    const char *target = redir.empty() ? pathname : redir.c_str();
+    if (orig_rmdir) return orig_rmdir(target);
+    return rmdir(target);
+}
+
 static void *hook_dlopen(const char *filename, int flags) {
     void *h = orig_dlopen ? orig_dlopen(filename, flags) : dlopen(filename, flags);
     if (h) dl_iterate_phdr(phdrPltCallback, nullptr);
@@ -373,6 +389,8 @@ static int phdrPltCallback(struct dl_phdr_info *info, size_t, void *) {
         {"fopen", reinterpret_cast<void *>(hook_fopen), reinterpret_cast<void **>(&orig_fopen)},
         {"fopen64", reinterpret_cast<void *>(hook_fopen), reinterpret_cast<void **>(&orig_fopen)},
         {"opendir", reinterpret_cast<void *>(hook_opendir), reinterpret_cast<void **>(&orig_opendir)},
+        {"remove", reinterpret_cast<void *>(hook_remove), reinterpret_cast<void **>(&orig_remove)},
+        {"rmdir", reinterpret_cast<void *>(hook_rmdir), reinterpret_cast<void **>(&orig_rmdir)},
         {"dlopen", reinterpret_cast<void *>(hook_dlopen), reinterpret_cast<void **>(&orig_dlopen)},
         {"android_dlopen_ext", reinterpret_cast<void *>(hook_android_dlopen_ext), reinterpret_cast<void **>(&orig_android_dlopen_ext)}
     };
