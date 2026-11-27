@@ -121,6 +121,9 @@ public final class MundoInstrumentation extends Instrumentation {
                                 opPkgField.setAccessible(true);
                                 opPkgField.set(origBase, hostPkg);
                             } catch (Throwable ignored) {}
+                            if (origBase instanceof Context) {
+                                MundoBinderProxy.fixContextAttribution((Context) origBase);
+                            }
                             try {
                                 Field clField = origBase.getClass().getDeclaredField("mClassLoader");
                                 clField.setAccessible(true);

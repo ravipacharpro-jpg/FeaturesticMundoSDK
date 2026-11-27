@@ -304,6 +304,7 @@ public final class MundoVirtualRuntime {
                     Object created = createAppContext.invoke(null, activityThread, loadedApk);
                     if (created instanceof Context) {
                         appContext = (Context) created;
+                        MundoBinderProxy.fixContextAttribution(appContext);
                         Log.i("MundoRuntime", "Created ContextImpl for " + ai.packageName + " pkg=" + appContext.getPackageName());
                     }
                 } catch (Throwable t) {

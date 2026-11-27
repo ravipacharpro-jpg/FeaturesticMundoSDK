@@ -42,6 +42,25 @@ public final class MundoBinderProxy {
         return sVirtualPkg;
     }
 
+    public static void fixContextAttribution(Context ctx) {
+        if (ctx == null || sHostPkg.isEmpty()) return;
+        try {
+            Field opPkgField = ctx.getClass().getDeclaredField("mOpPackageName");
+            opPkgField.setAccessible(true);
+            opPkgField.set(ctx, sHostPkg);
+        } catch (Throwable ignored) {}
+        if (Build.VERSION.SDK_INT >= 31) {
+            try {
+                Field attrField = ctx.getClass().getDeclaredField("mAttributionSource");
+                attrField.setAccessible(true);
+                Object attr = attrField.get(ctx);
+                if (attr instanceof android.content.AttributionSource) {
+                    AmsInvocationHandler.fixAttributionSource((android.content.AttributionSource) attr);
+                }
+            } catch (Throwable ignored) {}
+        }
+    }
+
     public static void setVirtualPackageInfo(PackageInfo pi) {
         if (pi == null) return;
         sVirtualPackageInfo = pi;
