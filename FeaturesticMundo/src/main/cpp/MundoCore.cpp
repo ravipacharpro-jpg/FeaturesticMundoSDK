@@ -61,6 +61,24 @@ static std::string redirectPath(const char *path) {
     if (p.rfind(dataPrefix2, 0) == 0) {
         return gSandboxDataDir + p.substr(dataPrefix2.length());
     }
+
+    if (!gHostPkg.empty()) {
+        std::string obb1 = "/storage/emulated/0/Android/obb/" + gActivePkg;
+        std::string obb2 = "/sdcard/Android/obb/" + gActivePkg;
+        if (p.rfind(obb1, 0) == 0) {
+            std::string hostObb = "/storage/emulated/0/Android/obb/" + gHostPkg + p.substr(obb1.length());
+            if (syscall(__NR_faccessat, AT_FDCWD, path, R_OK, 0) != 0 &&
+                syscall(__NR_faccessat, AT_FDCWD, hostObb.c_str(), F_OK, 0) == 0) {
+                return hostObb;
+            }
+        } else if (p.rfind(obb2, 0) == 0) {
+            std::string hostObb = "/sdcard/Android/obb/" + gHostPkg + p.substr(obb2.length());
+            if (syscall(__NR_faccessat, AT_FDCWD, path, R_OK, 0) != 0 &&
+                syscall(__NR_faccessat, AT_FDCWD, hostObb.c_str(), F_OK, 0) == 0) {
+                return hostObb;
+            }
+        }
+    }
     return "";
 }
 
