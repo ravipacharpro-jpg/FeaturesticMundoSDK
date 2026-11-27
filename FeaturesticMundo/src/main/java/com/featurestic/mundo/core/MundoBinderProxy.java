@@ -138,6 +138,30 @@ public final class MundoBinderProxy {
                         }
                     }
                 } else {
+                    if ("startService".equals(name)) {
+                        for (Object arg : args) {
+                            if (arg instanceof Intent) {
+                                Intent svc = (Intent) arg;
+                                ComponentName svcComp = svc.getComponent();
+                                String svcPkg = svcComp != null ? svcComp.getPackageName() : svc.getPackage();
+                                if (!sVirtualPkg.isEmpty() && sVirtualPkg.equals(svcPkg)) {
+                                    return svcComp != null ? svcComp : new ComponentName(sVirtualPkg, "");
+                                }
+                            }
+                        }
+                    }
+                    if ("stopService".equals(name)) {
+                        for (Object arg : args) {
+                            if (arg instanceof Intent) {
+                                Intent svc = (Intent) arg;
+                                ComponentName svcComp = svc.getComponent();
+                                String svcPkg = svcComp != null ? svcComp.getPackageName() : svc.getPackage();
+                                if (!sVirtualPkg.isEmpty() && sVirtualPkg.equals(svcPkg)) {
+                                    return 0;
+                                }
+                            }
+                        }
+                    }
                     if ("bindService".equals(name) || "bindServiceInstance".equals(name)
                             || "bindIsolatedService".equals(name)) {
                         for (Object arg : args) {
@@ -149,6 +173,7 @@ public final class MundoBinderProxy {
                                 }
                                 String action = svc.getAction();
                                 if ("com.google.android.gms".equals(svcPkg)
+                                        || (!sVirtualPkg.isEmpty() && sVirtualPkg.equals(svcPkg))
                                         || (action != null && action.startsWith("com.google.android.gms"))) {
                                     return 0;
                                 }
