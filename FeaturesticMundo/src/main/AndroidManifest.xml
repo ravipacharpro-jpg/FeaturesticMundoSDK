@@ -53,6 +53,12 @@
             android:configChanges="orientation|screenSize|keyboardHidden|smallestScreenSize|screenLayout"
             android:theme="@android:style/Theme.NoTitleBar.Fullscreen" />
 
+        <activity
+            android:name="com.featurestic.mundo.manifest.MundoGoogleAuthActivity"
+            android:exported="false"
+            android:configChanges="orientation|screenSize|keyboardHidden|smallestScreenSize|screenLayout"
+            android:theme="@android:style/Theme.NoTitleBar.Fullscreen" />
+
         <activity-alias
             android:name="com.featurestic.mundo.FBLoginAbility"
             android:enabled="true"

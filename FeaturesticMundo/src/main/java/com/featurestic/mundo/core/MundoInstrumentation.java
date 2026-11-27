@@ -14,6 +14,8 @@ import android.os.Bundle;
 import android.os.IBinder;
 import android.util.Log;
 
+import com.featurestic.mundo.auth.GoogleSignInTokenHelper;
+
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 
@@ -244,6 +246,21 @@ public final class MundoInstrumentation extends Instrumentation {
                         dispatchIntent = web;
                         Log.i("MundoInst", "execStartActivity routed OAuth URL to MundoOAuthWebActivity: " + host);
                     }
+                } else if (isGoogleSignInIntent(intent, intentPkg, cn)) {
+                    GoogleSignInTokenHelper.prepareOutboundSignInIntent(intent, targetPkg, hostPkg);
+                    Intent gAuth = new Intent();
+                    gAuth.setClassName(hostPkg, "com.featurestic.mundo.manifest.MundoGoogleAuthActivity");
+                    gAuth.putExtra("mundo_google_target_pkg", targetPkg);
+                    String clientId = GoogleSignInTokenHelper.getLastServerClientId();
+                    if (clientId != null && !clientId.isEmpty()) {
+                        gAuth.putExtra("mundo_google_server_client_id", clientId);
+                    }
+                    String scopes = GoogleSignInTokenHelper.getLastRequestedScopesString();
+                    if (scopes != null && !scopes.isEmpty()) {
+                        gAuth.putExtra("mundo_google_scopes", scopes);
+                    }
+                    dispatchIntent = gAuth;
+                    Log.i("MundoInst", "execStartActivity routed Google Sign-In to MundoGoogleAuthActivity");
                 }
             }
         } catch (Throwable t) {
@@ -260,6 +277,22 @@ public final class MundoInstrumentation extends Instrumentation {
             Log.e("MundoInst", "execStartActivity invoke failed", t);
             return null;
         }
+    }
+
+    private static boolean isGoogleSignInIntent(Intent intent, String intentPkg, ComponentName cn) {
+        if (intent == null) return false;
+        String action = intent.getAction();
+        if (action != null && (action.startsWith("com.google.android.gms.auth.")
+                || "com.google.android.gms.common.account.CHOOSE_ACCOUNT".equals(action))) {
+            return true;
+        }
+        if ("com.google.android.gms".equals(intentPkg) && cn != null) {
+            String cls = cn.getClassName();
+            if (cls.contains("SignIn") || cls.contains("Auth")) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static boolean isOAuthHost(String host) {

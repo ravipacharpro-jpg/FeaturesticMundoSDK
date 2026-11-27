@@ -34,6 +34,14 @@ public final class MundoBinderProxy {
 
     private MundoBinderProxy() {}
 
+    public static String getHostPkg() {
+        return sHostPkg;
+    }
+
+    public static String getVirtualPkg() {
+        return sVirtualPkg;
+    }
+
     public static void setVirtualPackageInfo(PackageInfo pi) {
         if (pi == null) return;
         sVirtualPackageInfo = pi;
@@ -413,6 +421,7 @@ public final class MundoBinderProxy {
                 merged.putAll(target.metaData);
             }
             merged.putBoolean("IMSDK_FACEBOOK_LOGIN_USING_WEB", true);
+            merged.putBoolean("IMSDK_GOOGLE_CREDENTIALS_MANAGER_ENABLED", false);
             target.metaData = merged;
         }
     }

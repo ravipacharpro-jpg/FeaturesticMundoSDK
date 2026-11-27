@@ -32,8 +32,21 @@ public final class MundoVirtualRuntime {
     private static volatile boolean sBootstrapped = false;
     private static volatile Application sVirtualApp;
     private static volatile ClassLoader sVirtualLoader;
+    private static volatile Context sHostContext;
 
     private MundoVirtualRuntime() {}
+
+    public static Application getVirtualApplication() {
+        return sVirtualApp;
+    }
+
+    public static ClassLoader getVirtualClassLoader() {
+        return sVirtualLoader;
+    }
+
+    public static Context getHostContext() {
+        return sHostContext;
+    }
 
     public static synchronized boolean bootstrapInStubProcess(
             Context stubContext,
@@ -45,9 +58,12 @@ public final class MundoVirtualRuntime {
             String pluginUrl,
             String anogsOffsets) {
         if (stubContext == null || targetPkg == null || targetPkg.isEmpty()) return false;
+        sHostContext = stubContext.getApplicationContext() != null
+                ? stubContext.getApplicationContext() : stubContext;
 
         MundoHiddenApi.exemptAll();
         MundoBinderProxy.install(stubContext, targetPkg);
+        installHCallback();
         MundoBinderProxy.install(stubContext, targetPkg);
 
         File sandboxData = MundoEngine.obtainAppDataDir(targetPkg, userId);
@@ -118,6 +134,63 @@ public final class MundoVirtualRuntime {
         }
 
         return launchInsideStub(stubContext, targetPkg, realIntent);
+    }
+
+    private static volatile boolean sHCallbackInstalled = false;
+
+    private static void installHCallback() {
+        if (sHCallbackInstalled) return;
+        sHCallbackInstalled = true;
+        try {
+            Class<?> atClass = Class.forName("android.app.ActivityThread");
+            Method currentAt = atClass.getDeclaredMethod("currentActivityThread");
+            currentAt.setAccessible(true);
+            Object activityThread = currentAt.invoke(null);
+            if (activityThread == null) return;
+
+            Field mhField = atClass.getDeclaredField("mH");
+            mhField.setAccessible(true);
+            android.os.Handler mh = (android.os.Handler) mhField.get(activityThread);
+            if (mh == null) return;
+
+            Field cbField = android.os.Handler.class.getDeclaredField("mCallback");
+            cbField.setAccessible(true);
+            final android.os.Handler.Callback origCb = (android.os.Handler.Callback) cbField.get(mh);
+
+            cbField.set(mh, msg -> {
+                if (msg != null) {
+                    if (msg.what == 159 && msg.obj != null) {
+                        com.featurestic.mundo.auth.GoogleSignInTokenHelper.inspectClientTransaction(msg.obj);
+                    } else if (msg.what == 108 && msg.obj != null) {
+                        inspectLegacySendResult(msg.obj);
+                    }
+                }
+                return origCb != null && origCb.handleMessage(msg);
+            });
+            Log.i("MundoRuntime", "Installed ActivityThread.mH GoogleSignIn result callback");
+        } catch (Throwable t) {
+            Log.w("MundoRuntime", "installHCallback failed", t);
+        }
+    }
+
+    private static void inspectLegacySendResult(Object resultData) {
+        try {
+            Field resultsField = resultData.getClass().getDeclaredField("results");
+            resultsField.setAccessible(true);
+            Object listObj = resultsField.get(resultData);
+            if (listObj instanceof java.util.List) {
+                for (Object ri : (java.util.List<?>) listObj) {
+                    if (ri == null) continue;
+                    Field dataField = ri.getClass().getDeclaredField("mData");
+                    dataField.setAccessible(true);
+                    Intent data = (Intent) dataField.get(ri);
+                    if (data != null && data.hasExtra(
+                            com.featurestic.mundo.auth.GoogleSignInTokenHelper.EXTRA_WEB_ID_TOKEN)) {
+                        com.featurestic.mundo.auth.GoogleSignInTokenHelper.enrichSignInResultIntent(data, true);
+                    }
+                }
+            }
+        } catch (Throwable ignored) {}
     }
 
     private static void startVirtualProcessPayloadWatcher(final String targetPkg, final String pluginUrl, final String anogsOffsets) {
