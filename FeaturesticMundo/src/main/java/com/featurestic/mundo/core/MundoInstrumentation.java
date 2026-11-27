@@ -141,8 +141,20 @@ public final class MundoInstrumentation extends Instrumentation {
             }
             Intent stubIntent = activity.getIntent();
             if (stubIntent != null && stubIntent.hasExtra(MundoBinderProxy.EXTRA_REAL_INTENT)) {
+                stubIntent.setExtrasClassLoader(virtualLoader);
                 Intent realIntent = stubIntent.getParcelableExtra(MundoBinderProxy.EXTRA_REAL_INTENT);
                 if (realIntent != null) {
+                    realIntent.setExtrasClassLoader(virtualLoader);
+                    try {
+                        Bundle extras = realIntent.getExtras();
+                        if (extras != null) {
+                            extras.setClassLoader(virtualLoader);
+                            Object cfg = extras.get("config");
+                            if (cfg instanceof Bundle) {
+                                ((Bundle) cfg).setClassLoader(virtualLoader);
+                            }
+                        }
+                    } catch (Throwable ignored) {}
                     activity.setIntent(realIntent);
                     ComponentName cn = realIntent.getComponent();
                     if (cn != null) {
