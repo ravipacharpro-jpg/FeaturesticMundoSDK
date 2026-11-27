@@ -295,12 +295,72 @@ public final class MundoBinderProxy {
                     }
                 }
             }
+            Object res;
             try {
-                return method.invoke(base, args);
+                res = method.invoke(base, args);
             } catch (java.lang.reflect.InvocationTargetException ite) {
                 Throwable cause = ite.getCause();
                 throw cause != null ? cause : ite;
             }
+            if (("getContentProvider".equals(name) || "getContentProviderExternal".equals(name))
+                    && res != null && !sVirtualPkg.isEmpty()) {
+                wrapContentProviderHolder(res);
+            }
+            return res;
+        }
+
+        private static void wrapContentProviderHolder(Object holder) {
+            try {
+                Field provField = holder.getClass().getDeclaredField("provider");
+                provField.setAccessible(true);
+                final Object rawProv = provField.get(holder);
+                if (rawProv == null || Proxy.isProxyClass(rawProv.getClass())) return;
+                Class<?> icpClass = Class.forName("android.content.IContentProvider");
+                if (!icpClass.isInstance(rawProv)) return;
+                Object proxy = Proxy.newProxyInstance(
+                        icpClass.getClassLoader(),
+                        new Class<?>[]{icpClass},
+                        (p, m, mArgs) -> {
+                            if (mArgs != null) {
+                                for (int i = 0; i < mArgs.length; i++) {
+                                    if (mArgs[i] instanceof String && sVirtualPkg.equals(mArgs[i])) {
+                                        mArgs[i] = sHostPkg;
+                                    } else if (Build.VERSION.SDK_INT >= 31
+                                            && mArgs[i] instanceof android.content.AttributionSource) {
+                                        fixAttributionSource((android.content.AttributionSource) mArgs[i]);
+                                    }
+                                }
+                            }
+                            try {
+                                return m.invoke(rawProv, mArgs);
+                            } catch (java.lang.reflect.InvocationTargetException ite) {
+                                Throwable cause = ite.getCause();
+                                throw cause != null ? cause : ite;
+                            }
+                        });
+                provField.set(holder, proxy);
+            } catch (Throwable ignored) {}
+        }
+
+        private static void fixAttributionSource(android.content.AttributionSource as) {
+            if (as == null || sHostPkg.isEmpty()) return;
+            try {
+                Field stateField = android.content.AttributionSource.class
+                        .getDeclaredField("mAttributionSourceState");
+                stateField.setAccessible(true);
+                Object state = stateField.get(as);
+                if (state != null) {
+                    Field pkgField = state.getClass().getDeclaredField("packageName");
+                    pkgField.setAccessible(true);
+                    Object curPkg = pkgField.get(state);
+                    if (curPkg instanceof String && sVirtualPkg.equals(curPkg)) {
+                        pkgField.set(state, sHostPkg);
+                    }
+                    Field uidField = state.getClass().getDeclaredField("uid");
+                    uidField.setAccessible(true);
+                    uidField.setInt(state, android.os.Process.myUid());
+                }
+            } catch (Throwable ignored) {}
         }
 
         private static void wrapGmsServiceConnectionArg(Object[] args) {
