@@ -244,6 +244,7 @@ public final class MundoBinderProxy {
                     }
                     if ("bindService".equals(name) || "bindServiceInstance".equals(name)
                             || "bindIsolatedService".equals(name)) {
+                        boolean isGmsBind = false;
                         for (Object arg : args) {
                             if (arg instanceof Intent) {
                                 Intent svc = (Intent) arg;
@@ -252,12 +253,17 @@ public final class MundoBinderProxy {
                                     svcPkg = svc.getComponent().getPackageName();
                                 }
                                 String action = svc.getAction();
-                                if ("com.google.android.gms".equals(svcPkg)
-                                        || (!sVirtualPkg.isEmpty() && sVirtualPkg.equals(svcPkg))
-                                        || (action != null && action.startsWith("com.google.android.gms"))) {
+                                if (!sVirtualPkg.isEmpty() && sVirtualPkg.equals(svcPkg)) {
                                     return 0;
                                 }
+                                if ("com.google.android.gms".equals(svcPkg)
+                                        || (action != null && action.startsWith("com.google.android.gms"))) {
+                                    isGmsBind = true;
+                                }
                             }
+                        }
+                        if (isGmsBind) {
+                            wrapGmsServiceConnectionArg(args);
                         }
                     }
                     if ("getIntentSender".equals(name) || "getIntentSenderWithFeature".equals(name)
@@ -294,6 +300,77 @@ public final class MundoBinderProxy {
             } catch (java.lang.reflect.InvocationTargetException ite) {
                 Throwable cause = ite.getCause();
                 throw cause != null ? cause : ite;
+            }
+        }
+
+        private static void wrapGmsServiceConnectionArg(Object[] args) {
+            if (args == null) return;
+            try {
+                final Class<?> iscClass = Class.forName("android.app.IServiceConnection");
+                for (int i = 0; i < args.length; i++) {
+                    if (args[i] != null && iscClass.isInstance(args[i])) {
+                        final Object origConn = args[i];
+                        final android.os.IBinder[] holder = new android.os.IBinder[1];
+                        final Object connProxy = Proxy.newProxyInstance(
+                                iscClass.getClassLoader(),
+                                new Class<?>[]{iscClass},
+                                (p, m, mArgs) -> {
+                                    String mName = m.getName();
+                                    if ("asBinder".equals(mName)) {
+                                        return holder[0];
+                                    }
+                                    if ("connected".equals(mName) && mArgs != null && mArgs.length >= 2
+                                            && mArgs[1] instanceof android.os.IBinder) {
+                                        mArgs[1] = com.featurestic.mundo.auth.GmsBrokerCompat.wrap(
+                                                (android.os.IBinder) mArgs[1]);
+                                    }
+                                    return m.invoke(origConn, mArgs);
+                                });
+                        holder[0] = new android.os.Binder() {
+                            @Override
+                            public android.os.IInterface queryLocalInterface(String descriptor) {
+                                if ("android.app.IServiceConnection".equals(descriptor)) {
+                                    return (android.os.IInterface) connProxy;
+                                }
+                                return super.queryLocalInterface(descriptor);
+                            }
+
+                            @Override
+                            protected boolean onTransact(
+                                    int code, android.os.Parcel data, android.os.Parcel reply, int flags)
+                                    throws android.os.RemoteException {
+                                if (code == android.os.IBinder.FIRST_CALL_TRANSACTION) {
+                                    data.enforceInterface("android.app.IServiceConnection");
+                                    ComponentName comp = (data.readInt() != 0)
+                                            ? ComponentName.CREATOR.createFromParcel(data) : null;
+                                    android.os.IBinder svc = data.readStrongBinder();
+                                    boolean dead = data.readInt() != 0;
+                                    android.os.IBinder wrapped = com.featurestic.mundo.auth.GmsBrokerCompat.wrap(svc);
+                                    try {
+                                        Method cm = origConn.getClass().getMethod(
+                                                "connected", ComponentName.class, android.os.IBinder.class, boolean.class);
+                                        cm.setAccessible(true);
+                                        cm.invoke(origConn, comp, wrapped, dead);
+                                        return true;
+                                    } catch (Throwable t) {
+                                        try {
+                                            Method cm2 = origConn.getClass().getMethod(
+                                                    "connected", ComponentName.class, android.os.IBinder.class);
+                                            cm2.setAccessible(true);
+                                            cm2.invoke(origConn, comp, wrapped);
+                                            return true;
+                                        } catch (Throwable ignored) {}
+                                    }
+                                }
+                                return super.onTransact(code, data, reply, flags);
+                            }
+                        };
+                        args[i] = connProxy;
+                        break;
+                    }
+                }
+            } catch (Throwable t) {
+                Log.w("MundoBinder", "wrapGmsServiceConnectionArg failed", t);
             }
         }
     }
