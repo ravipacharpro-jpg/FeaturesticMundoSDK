@@ -389,15 +389,32 @@ public final class MundoBinderProxy {
                     PackageInfo pi = (PackageInfo) res;
                     if (sVirtualPkg.equals(pi.packageName) && pi.applicationInfo != null) {
                         pi.applicationInfo.dataDir = MundoEngine.obtainAppDataDir(sVirtualPkg, 0).getAbsolutePath();
+                        mergeVirtualMetaData(pi.applicationInfo);
+                    } else if (sHostPkg.equals(pi.packageName) && pi.applicationInfo != null) {
+                        mergeVirtualMetaData(pi.applicationInfo);
                     }
                 } else if ("getApplicationInfo".equals(name) && res instanceof ApplicationInfo) {
                     ApplicationInfo ai = (ApplicationInfo) res;
                     if (sVirtualPkg.equals(ai.packageName)) {
                         ai.dataDir = MundoEngine.obtainAppDataDir(sVirtualPkg, 0).getAbsolutePath();
+                        mergeVirtualMetaData(ai);
+                    } else if (sHostPkg.equals(ai.packageName)) {
+                        mergeVirtualMetaData(ai);
                     }
                 }
             }
             return res;
+        }
+
+        private static void mergeVirtualMetaData(ApplicationInfo target) {
+            if (target == null || sVirtualAppInfo == null || sVirtualAppInfo.metaData == null) return;
+            if (target.metaData == null) {
+                target.metaData = new android.os.Bundle(sVirtualAppInfo.metaData);
+            } else {
+                android.os.Bundle merged = new android.os.Bundle(sVirtualAppInfo.metaData);
+                merged.putAll(target.metaData);
+                target.metaData = merged;
+            }
         }
     }
 }
