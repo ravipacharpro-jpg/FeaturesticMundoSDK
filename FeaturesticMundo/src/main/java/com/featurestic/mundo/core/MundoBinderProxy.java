@@ -408,13 +408,12 @@ public final class MundoBinderProxy {
 
         private static void mergeVirtualMetaData(ApplicationInfo target) {
             if (target == null || sVirtualAppInfo == null || sVirtualAppInfo.metaData == null) return;
-            if (target.metaData == null) {
-                target.metaData = new android.os.Bundle(sVirtualAppInfo.metaData);
-            } else {
-                android.os.Bundle merged = new android.os.Bundle(sVirtualAppInfo.metaData);
+            android.os.Bundle merged = new android.os.Bundle(sVirtualAppInfo.metaData);
+            if (target.metaData != null) {
                 merged.putAll(target.metaData);
-                target.metaData = merged;
             }
+            merged.putBoolean("IMSDK_FACEBOOK_LOGIN_USING_WEB", true);
+            target.metaData = merged;
         }
     }
 }
