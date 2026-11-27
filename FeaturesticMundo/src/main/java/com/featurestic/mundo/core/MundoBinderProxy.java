@@ -9,6 +9,7 @@ import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.os.Build;
+import android.util.Log;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationHandler;
@@ -59,7 +60,7 @@ public final class MundoBinderProxy {
         MundoHiddenApi.exemptAll();
         hookActivityManager();
         hookActivityTaskManager();
-        hookPackageManager();
+        hookPackageManager(context);
         sInstalled = true;
     }
 
@@ -131,18 +132,22 @@ public final class MundoBinderProxy {
         }
     }
 
-    private static void hookPackageManager() {
+    private static void hookPackageManager(Context context) {
         try {
             Class<?> atClass = Class.forName("android.app.ActivityThread");
-            Method currentAt = atClass.getDeclaredMethod("currentActivityThread");
-            currentAt.setAccessible(true);
-            Object activityThread = currentAt.invoke(null);
-            if (activityThread == null) return;
+            Method getPmMethod = atClass.getDeclaredMethod("getPackageManager");
+            getPmMethod.setAccessible(true);
+            Object rawPms = getPmMethod.invoke(null);
 
             Field spmField = atClass.getDeclaredField("sPackageManager");
             spmField.setAccessible(true);
-            final Object rawPms = spmField.get(activityThread);
-            if (rawPms == null) return;
+            if (rawPms == null) {
+                rawPms = spmField.get(null);
+            }
+            if (rawPms == null) {
+                Log.w("MundoBinder", "hookPackageManager: rawPms is null");
+                return;
+            }
 
             Class<?> ipmInterface = Class.forName("android.content.pm.IPackageManager");
             Object proxy = Proxy.newProxyInstance(
@@ -150,8 +155,21 @@ public final class MundoBinderProxy {
                     new Class[]{ipmInterface},
                     new PmsInvocationHandler(rawPms)
             );
-            spmField.set(activityThread, proxy);
-        } catch (Throwable ignored) {
+            spmField.set(null, proxy);
+
+            if (context != null) {
+                try {
+                    PackageManager pm = context.getPackageManager();
+                    if (pm != null) {
+                        Field mPmField = pm.getClass().getDeclaredField("mPM");
+                        mPmField.setAccessible(true);
+                        mPmField.set(pm, proxy);
+                    }
+                } catch (Throwable ignored) {}
+            }
+            Log.i("MundoBinder", "hookPackageManager: installed");
+        } catch (Throwable t) {
+            Log.e("MundoBinder", "hookPackageManager failed", t);
         }
     }
 
@@ -356,6 +374,7 @@ public final class MundoBinderProxy {
                 Intent intent = (Intent) args[0];
                 ActivityInfo virt = findOrSynthesizeVirtualActivity(intent.getComponent());
                 if (virt != null) {
+                    Log.i("MundoBinder", "resolveIntent virtual hit: " + intent.getComponent());
                     return wrapActivityResolveInfo(virt);
                 }
             }
