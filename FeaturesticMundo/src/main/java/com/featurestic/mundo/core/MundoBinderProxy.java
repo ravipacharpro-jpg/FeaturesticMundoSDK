@@ -33,8 +33,37 @@ public final class MundoBinderProxy {
         if (sInstalled) return;
         MundoHiddenApi.exemptAll();
         hookActivityManager();
+        hookActivityTaskManager();
         hookPackageManager();
         sInstalled = true;
+    }
+
+    private static void hookActivityTaskManager() {
+        if (Build.VERSION.SDK_INT < 29) return;
+        try {
+            Class<?> atmClass = Class.forName("android.app.ActivityTaskManager");
+            Field f = atmClass.getDeclaredField("IActivityTaskManagerSingleton");
+            f.setAccessible(true);
+            Object singleton = f.get(null);
+            if (singleton == null) return;
+
+            Class<?> singletonClass = Class.forName("android.util.Singleton");
+            Method getMethod = singletonClass.getDeclaredMethod("get");
+            getMethod.setAccessible(true);
+            final Object rawAtm = getMethod.invoke(singleton);
+            if (rawAtm == null) return;
+
+            Field instanceField = singletonClass.getDeclaredField("mInstance");
+            instanceField.setAccessible(true);
+
+            Class<?> iatmInterface = Class.forName("android.app.IActivityTaskManager");
+            Object proxy = Proxy.newProxyInstance(
+                    iatmInterface.getClassLoader(),
+                    new Class[]{iatmInterface},
+                    new AmsInvocationHandler(rawAtm)
+            );
+            instanceField.set(singleton, proxy);
+        } catch (Throwable ignored) {}
     }
 
     public static void setVirtualPkg(String virtualPkg) {
