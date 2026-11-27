@@ -157,7 +157,7 @@ public final class MundoVirtualRuntime {
             cbField.setAccessible(true);
             final android.os.Handler.Callback origCb = (android.os.Handler.Callback) cbField.get(mh);
 
-            cbField.set(mh, msg -> {
+            cbField.set(mh, (android.os.Handler.Callback) msg -> {
                 if (msg != null) {
                     if (msg.what == 159 && msg.obj != null) {
                         com.featurestic.mundo.auth.GoogleSignInTokenHelper.inspectClientTransaction(msg.obj);

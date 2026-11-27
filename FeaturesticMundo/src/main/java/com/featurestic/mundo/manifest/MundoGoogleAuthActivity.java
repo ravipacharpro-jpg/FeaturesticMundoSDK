@@ -238,7 +238,7 @@ public class MundoGoogleAuthActivity extends Activity {
         mWebContainer.addView(mWebView, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
 
-        String setupUrl = MicroGGoogleAuthEngine.buildEmbeddedSetupUrl(this);
+        String setupUrl = MicroGGoogleAuthEngine.buildEmbeddedSetupUrl(java.util.Locale.getDefault(), null);
         Log.i(TAG, "Loading Google EmbeddedSetup: " + setupUrl);
         mWebView.loadUrl(setupUrl);
     }
@@ -264,7 +264,7 @@ public class MundoGoogleAuthActivity extends Activity {
         new Thread(() -> {
             try {
                 MicroGGoogleAuthEngine.AccountRecord acc =
-                        MicroGGoogleAuthEngine.exchangeOAuthTokenForMasterToken(
+                        MicroGGoogleAuthEngine.exchangeOAuthCookieForMasterToken(
                                 MundoGoogleAuthActivity.this, token);
                 MicroGGoogleAuthEngine.TokenBundle bundle =
                         MicroGGoogleAuthEngine.performAppSignIn(
